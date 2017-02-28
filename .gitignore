@@ -1,0 +1,7 @@
+*.zip
+*.tar.gz
+*.deb
+*.xz
+/debian-package/root/
+/debian-package/debian/xroad-wsdlvalidator/
+*~

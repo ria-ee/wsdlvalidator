@@ -1,0 +1,2526 @@
+diff --strip-trailing-cr -wruN apache-cxf-3.0.1-src_orig/core/src/main/resources/schemas/wsdl/mime-binding.xsd apache-cxf-3.0.1-src_new/core/src/main/resources/schemas/wsdl/mime-binding.xsd
+--- apache-cxf-3.0.1-src_orig/core/src/main/resources/schemas/wsdl/mime-binding.xsd	2016-01-21 11:10:51.801055126 +0200
++++ apache-cxf-3.0.1-src_new/core/src/main/resources/schemas/wsdl/mime-binding.xsd	2016-01-21 11:15:10.591643173 +0200
+@@ -11,7 +11,7 @@
+ license are distributed with them.  The originals of these files can 
+ be located at:
+ 
+-http://schemas.xmlsoap.org/wsdl/mime/2002-01-29.xsd
++http://schemas.xmlsoap.org/wsdl/mime/2004-08-24.xsd
+ 
+ THESE SCHEMA FILES ARE PROVIDED "AS IS," AND THE AUTHORS MAKE NO REPRESENTATIONS 
+ OR WARRANTIES, EXPRESS OR IMPLIED, REGARDING THESE FILES, INCLUDING, BUT NOT 
+@@ -31,14 +31,14 @@
+   -->
+ <schema targetNamespace="http://schemas.xmlsoap.org/wsdl/mime/" xmlns:mime="http://schemas.xmlsoap.org/wsdl/mime/" xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" xmlns="http://www.w3.org/2001/XMLSchema">
+ 
+-	<import namespace="http://schemas.xmlsoap.org/wsdl/"/>
++	<import namespace="http://schemas.xmlsoap.org/wsdl/" schemaLocation="http://schemas.xmlsoap.org/wsdl/"/>
+    	<element name="content" type="mime:contentType"/>
+    	<complexType name="contentType">
+ 		<complexContent>
+ 		<extension base="wsdl:tExtensibilityElement">
+ 			<sequence/>
+       			<attribute name="type" type="string" use="optional"/>
+-	      		<attribute name="part" type="NMTOKEN" use="optional"/>
++				<attribute name="part" type="NMTOKEN" use="required"/>
+ 		</extension>
+ 		</complexContent>
+    	</complexType>
+@@ -47,16 +47,17 @@
+ 		<complexContent>
+ 		<extension base="wsdl:tExtensibilityElement">
+ 			<sequence>
+-		      		<element name="part" type="mime:tPart" minOccurs="0" maxOccurs="unbounded"/>
++					<element ref="mime:part" minOccurs="0" maxOccurs="unbounded"/>
+ 			</sequence>
+ 		</extension>
+ 		</complexContent>
+    	</complexType>
++	<element name="part" type="mime:tPart"/>
+       	<complexType name="tPart">
+ 		<sequence>
+-	      		<any namespace="##targetNamespace" minOccurs="0" maxOccurs="unbounded"/>
++			<any namespace="##any" minOccurs="0" maxOccurs="unbounded"/>
+ 		</sequence>
+-        	<attribute name="name" type="NMTOKEN" use="required"/>
++		<attribute name="name" type="NMTOKEN" use="optional"/>
+    	</complexType>
+    	<element name="mimeXml" type="mime:tMimeXml"/>
+    	<complexType name="tMimeXml">
+diff --strip-trailing-cr -wruN apache-cxf-3.0.1-src_orig/rt/bindings/soap/src/main/java/org/apache/cxf/binding/soap/SOAPBindingUtil.java apache-cxf-3.0.1-src_new/rt/bindings/soap/src/main/java/org/apache/cxf/binding/soap/SOAPBindingUtil.java
+--- apache-cxf-3.0.1-src_orig/rt/bindings/soap/src/main/java/org/apache/cxf/binding/soap/SOAPBindingUtil.java	2016-01-21 11:10:51.829054963 +0200
++++ apache-cxf-3.0.1-src_new/rt/bindings/soap/src/main/java/org/apache/cxf/binding/soap/SOAPBindingUtil.java	2016-01-21 11:15:10.615643014 +0200
+@@ -365,7 +365,7 @@
+                                || bindingStyle.equalsIgnoreCase(previousOpStyle)
+                                && bindingStyle.equalsIgnoreCase(style)) {
+                         previousOpStyle = style;
+-                    } else if (!"".equals(bindingStyle) && "".equals(style) && "".equals(previousOpStyle)) {
++                    } else if (!"".equals(bindingStyle) && "".equals(style)) {
+                         continue;
+                     } else {
+                         return true;
+diff --strip-trailing-cr -wruN apache-cxf-3.0.1-src_orig/tools/common/src/main/java/org/apache/cxf/tools/common/ToolConstants.java apache-cxf-3.0.1-src_new/tools/common/src/main/java/org/apache/cxf/tools/common/ToolConstants.java
+--- apache-cxf-3.0.1-src_orig/tools/common/src/main/java/org/apache/cxf/tools/common/ToolConstants.java	2016-01-21 11:10:52.049053758 +0200
++++ apache-cxf-3.0.1-src_new/tools/common/src/main/java/org/apache/cxf/tools/common/ToolConstants.java	2016-01-21 11:15:10.847641758 +0200
+@@ -151,6 +151,8 @@
+     public static final String CXF_SCHEMA_DIR = "cxf_schema_dir";
+     public static final String CXF_SCHEMAS_DIR_INJAR = "schemas/wsdl/";
+     public static final String CFG_SUPPRESS_WARNINGS = "suppressWarnings";
++    public static final String CFG_ADDITION_WSDL_RULES_FILE = "ruleSetFile";
++    public static final String CFG_USE_STANDARD_INPUT = "useStandardInput";
+ 
+ 
+     // WSDL2Java Processor Constants
+diff --strip-trailing-cr -wruN apache-cxf-3.0.1-src_orig/tools/validator/pom.xml apache-cxf-3.0.1-src_new/tools/validator/pom.xml
+--- apache-cxf-3.0.1-src_orig/tools/validator/pom.xml	2016-01-21 11:10:52.005053998 +0200
++++ apache-cxf-3.0.1-src_new/tools/validator/pom.xml	2016-01-21 11:15:10.799642017 +0200
+@@ -80,5 +80,10 @@
+             <artifactId>cxf-rt-bindings-soap</artifactId>
+             <version>${project.version}</version>
+         </dependency>
++        <dependency>
++ 		    <groupId>com.github.stefanbirkner</groupId>
++  		    <artifactId>system-rules</artifactId>
++  		    <version>1.8.0</version>
++        </dependency>
+     </dependencies>
+ </project>
+diff --strip-trailing-cr -wruN apache-cxf-3.0.1-src_orig/tools/validator/src/main/java/org/apache/cxf/tools/validator/internal/AdditionalRulesValidator.java apache-cxf-3.0.1-src_new/tools/validator/src/main/java/org/apache/cxf/tools/validator/internal/AdditionalRulesValidator.java
+--- apache-cxf-3.0.1-src_orig/tools/validator/src/main/java/org/apache/cxf/tools/validator/internal/AdditionalRulesValidator.java	1970-01-01 03:00:00.000000000 +0300
++++ apache-cxf-3.0.1-src_new/tools/validator/src/main/java/org/apache/cxf/tools/validator/internal/AdditionalRulesValidator.java	2016-01-21 11:15:10.799642017 +0200
+@@ -0,0 +1,222 @@
++/**
++ * Licensed to the Apache Software Foundation (ASF) under one
++ * or more contributor license agreements. See the NOTICE file
++ * distributed with this work for additional information
++ * regarding copyright ownership. The ASF licenses this file
++ * to you under the Apache License, Version 2.0 (the
++ * "License"); you may not use this file except in compliance
++ * with the License. You may obtain a copy of the License at
++ *
++ * http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing,
++ * software distributed under the License is distributed on an
++ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
++ * KIND, either express or implied. See the License for the
++ * specific language governing permissions and limitations
++ * under the License.
++ */
++
++package org.apache.cxf.tools.validator.internal;
++
++import java.io.File;
++import java.io.FileInputStream;
++import java.io.PrintStream;
++import java.util.ArrayList;
++import java.util.List;
++import java.util.Properties;
++
++import javax.xml.xpath.XPath;
++import javax.xml.xpath.XPathConstants;
++import javax.xml.xpath.XPathFactory;
++
++import org.w3c.dom.Document;
++import org.w3c.dom.Node;
++import org.w3c.dom.NodeList;
++
++import org.apache.cxf.tools.common.ToolException;
++import org.apache.cxf.tools.validator.internal.model.XNode;
++
++public class AdditionalRulesValidator extends AbstractDefinitionValidator {
++    
++    protected PrintStream err = System.err;
++
++    protected List<XNode> vNodes = new ArrayList<XNode>();
++
++    private String[] mandatoryNodesReturningError;
++
++    private String[] mandatoryNodesReturningWarning;
++
++    private String[] notAllowedNodesReturningError;
++
++    private String[] notAllowedNodesReturningWarning;
++    
++    private String[] mandatoryNodesInSpecifiedArraysReturningError;
++    
++    private String[] mandatoryNodesInSpecifiedArraysReturningWarning;
++
++    private File[] configFiles;
++
++    private Document wsdlsrc;
++
++    private XPath xpath = XPathFactory.newInstance().newXPath();
++
++    public AdditionalRulesValidator(File [] configFiles, Document wsdl) {
++        this.configFiles = configFiles;
++        this.wsdlsrc = wsdl;
++    }
++    private void setPropValues(File configFile) throws Exception {
++        Properties prop = new Properties();
++
++        prop.load(new FileInputStream(configFile));
++
++        mandatoryNodesReturningError = prop.getProperty("mandatoryNodesReturningError") != null
++               ? prop.getProperty("mandatoryNodesReturningError").split(", ") : null;
++        mandatoryNodesReturningWarning = prop.getProperty("mandatoryNodesReturningWarning") != null
++               ? prop.getProperty("mandatoryNodesReturningWarning").split(", ") : null;
++
++        notAllowedNodesReturningError = prop.getProperty("notAllowedNodesReturningError") != null
++               ? prop.getProperty("notAllowedNodesReturningError").split(", ") : null;
++        notAllowedNodesReturningWarning = prop.getProperty("notAllowedNodesReturningWarning") != null
++               ? prop.getProperty("notAllowedNodesReturningWarning").split(", ") : null;
++        mandatoryNodesInSpecifiedArraysReturningError = 
++               prop.getProperty("mandatoryNodesInSpecifiedArraysReturningError") != null
++               ? prop.getProperty("mandatoryNodesInSpecifiedArraysReturningError").split(", ") : null;
++        mandatoryNodesInSpecifiedArraysReturningWarning = 
++               prop.getProperty("mandatoryNodesInSpecifiedArraysReturningWarning") != null
++               ? prop.getProperty("mandatoryNodesInSpecifiedArraysReturningWarning").split(", ") : null;
++    }
++    
++    private boolean checkNodesReturningError(String[] rules, boolean existence) {
++        if (rules != null && rules.length > 0) {
++            for (int i = 0; i < rules.length; i++) {
++                if (rules[i] != null && !rules[i].isEmpty()) {
++                    Node element = getValue(rules[i], wsdlsrc);
++                    if (existence) {
++                        if (element == null) {
++                            addErrorMessage("Element " + rules[i] + " not found or does not match the validation rule");
++                            return false;
++                        }
++                    } else {
++                        if (element != null) {
++                            addErrorMessage("Element " + rules[i] + " must not exist according to the rules");
++                            return false;
++                        }
++                    }
++                }
++            }
++        }
++        return true;
++    }
++    private boolean checkNodesReturningWarning(String[] rules, boolean existence) {
++        if (rules != null && rules.length > 0) {
++            for (int i = 0; i < rules.length; i++) {
++                if (!rules[i].isEmpty()) {
++                    Node element = getValue(rules[i], wsdlsrc);
++                    if (existence) {
++                        if (element == null) {
++                            err.println("WARNING: Element " + rules[i]
++                                    + " not found or does not match the validation rule");
++                            return true;
++                        }
++                    } else {
++                        if (element != null) {
++                            err.println("WARNING: Element " + rules[i]
++                                    + " must not exist according to the rules");
++                            return true;
++                        }
++                    }
++                }
++            }
++        }
++        return true;
++    }
++    private boolean returnWarningOrError(String textError, String textWarning, boolean warning) {
++        if (!warning) {
++            addErrorMessage(textError);
++            return false;
++        } else {
++            err.println(textWarning);
++            return true;
++        }
++    }
++    private boolean checkNodeInNodeList(String nodeList, String node, boolean warning) {
++        NodeList elementsArray = getValueArray(nodeList, wsdlsrc);
++        if (elementsArray != null && elementsArray.getLength() > 0) {
++            for (int m = 0; m < elementsArray.getLength(); m++) {
++                Node parentNode = elementsArray.item(m);
++                Node childNode = getValue(node, parentNode);
++                if (parentNode == null || childNode == null) {
++                    return returnWarningOrError("Element " + node + " must exist in parent " + nodeList,
++                        "WARNING: Element " + node + " must exist in parent " + nodeList, warning);
++                }
++            }
++        } else {
++            addErrorMessage("Element " + nodeList + " does not exist or empty");
++            return false;
++        }
++        return true;
++    }
++    
++    private boolean checkNodesInArrays(String[] rules, boolean warning) {
++        if (rules != null && rules.length > 0) {
++            for (int i = 0; i < rules.length; i++) {
++                if (rules[i] != null && !rules[i].isEmpty()) {
++                    String[] parts = rules[i].split(" -> ");
++                    String nodeList = parts[0]; 
++                    String node = parts.length > 1 ? parts[1] : null;
++                    if (nodeList != null && !nodeList.isEmpty() && node != null && !node.isEmpty()) {
++                        if (checkNodeInNodeList(nodeList, node, warning)) {
++                            continue;
++                        } else {
++                            return false;
++                        }
++                    } else {
++                        addErrorMessage("Element " + rules[i] + " is incorrectly represented");
++                        return false;
++                    }
++                }
++            }
++        }
++        return true;
++    }
++    private Node getValue(String xpathExpression, Document document) {
++        try {
++            return (Node)xpath.evaluate(xpathExpression, document, XPathConstants.NODE);
++        } catch (Exception e) {
++            throw new ToolException(e.getMessage() + " in node " + xpathExpression);
++        }
++    }
++    private NodeList getValueArray(String xpathExpression, Document document) {
++        try {
++            return (NodeList) xpath.evaluate(xpathExpression, document, XPathConstants.NODESET);
++        } catch (Exception e) {
++            throw new ToolException(e.getMessage() + " in node " + xpathExpression);
++        }
++    }
++    private Node getValue(String xpathExpression, Node node) {
++        try {
++            return (Node)xpath.evaluate(xpathExpression, node, XPathConstants.NODE);
++        } catch (Exception e) {
++            throw new ToolException(e.getMessage() + " in node " + xpathExpression);
++        }
++    }
++    public boolean isValid() {
++        for (File file:configFiles) {
++            try {
++                setPropValues(file);
++                if (!checkNodesReturningError(mandatoryNodesReturningError, true)
++                    || !checkNodesReturningWarning(mandatoryNodesReturningWarning, true)
++                    || !checkNodesReturningError(notAllowedNodesReturningError, false)
++                    || !checkNodesReturningWarning(notAllowedNodesReturningWarning, false)
++                    || !checkNodesInArrays(mandatoryNodesInSpecifiedArraysReturningError, false)
++                    || !checkNodesInArrays(mandatoryNodesInSpecifiedArraysReturningWarning, true)) {
++                    return false;
++                }
++            } catch (Exception e) {
++                throw new ToolException(e);
++            }
++        }
++        return true;
++    }
++}
+\ No newline at end of file
+diff --strip-trailing-cr -wruN apache-cxf-3.0.1-src_orig/tools/validator/src/main/java/org/apache/cxf/tools/validator/internal/WSDL11Validator.java apache-cxf-3.0.1-src_new/tools/validator/src/main/java/org/apache/cxf/tools/validator/internal/WSDL11Validator.java
+--- apache-cxf-3.0.1-src_orig/tools/validator/src/main/java/org/apache/cxf/tools/validator/internal/WSDL11Validator.java	2016-01-21 11:10:52.005053998 +0200
++++ apache-cxf-3.0.1-src_new/tools/validator/src/main/java/org/apache/cxf/tools/validator/internal/WSDL11Validator.java	2016-01-21 11:15:10.799642017 +0200
+@@ -22,7 +22,10 @@
+ import java.io.File;
+ import java.io.FileFilter;
+ import java.io.FileNotFoundException;
++import java.io.FileOutputStream;
+ import java.io.IOException;
++import java.io.InputStream;
++import java.io.OutputStream;
+ import java.net.JarURLConnection;
+ import java.net.URI;
+ import java.net.URISyntaxException;
+@@ -37,8 +40,11 @@
+ import java.util.logging.Level;
+ import java.util.logging.Logger;
+ 
++
+ import javax.wsdl.Definition;
+ import javax.wsdl.WSDLException;
++import javax.xml.parsers.DocumentBuilder;
++import javax.xml.parsers.DocumentBuilderFactory;
+ 
+ import org.w3c.dom.Document;
+ import org.xml.sax.InputSource;
+@@ -63,6 +69,8 @@
+     protected static final Logger LOG = LogUtils.getL7dLogger(SchemaValidator.class);
+     private final List<AbstractValidator> validators = new ArrayList<AbstractValidator>();
+ 
++    private boolean useStandardInput;
++
+     public WSDL11Validator(final Definition definition) {
+         this(definition, null);
+     }
+@@ -74,12 +82,13 @@
+     public WSDL11Validator(final Definition definition, final ToolContext pe, final Bus b) {
+         super(definition, pe, b);
+     }
+-
++    public void setUseStandardInput(boolean s) {
++        this.useStandardInput = s;
++    }
+     private Document getWSDLDoc(String wsdl) {
+         LOG.log(Level.FINE, new Message("VALIDATE_WSDL", LOG, wsdl).toString());
+         try {
+             OASISCatalogManager catalogResolver = OASISCatalogManager.getCatalogManager(this.getBus());
+-
+             String nw = new OASISCatalogManagerHelper().resolve(catalogResolver, 
+                                                                 wsdl, null);
+             if (nw == null) {
+@@ -93,21 +102,65 @@
+             throw new ToolException(e);
+         }
+     }
++    private String getFileAbsolutePath(String filePath) {
++        try {
++            OASISCatalogManager catalogResolver = OASISCatalogManager.getCatalogManager(this.getBus());
++
++            String nw = new OASISCatalogManagerHelper().resolve(catalogResolver, 
++                filePath, null);
++            if (nw == null) {
++                nw = filePath;
++            }
++            return URIParserUtil.getAbsoluteURI(nw);
++        } catch (FileNotFoundException fe) {
++            LOG.log(Level.WARNING, "Cannot find the ruleSet file " + filePath + "to validate");
++            return null;
++        } catch (Exception e) {
++            throw new ToolException(e);
++        }
++    }
++    private File getFile(String filePath) {
++        try {
++            URI fileUri = new URI(getFileAbsolutePath(filePath));            
++            return new File(fileUri);
++        } catch (Exception e) {
++            throw new ToolException("Cannot find file: " + filePath);
++        }
++    }
++    private Document getDocument(File file) {
++        try {
++            DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
++            dbFactory.setNamespaceAware(true);
++            DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
++            if (file != null) {
++                return dBuilder.parse(file);
++            }
++            return dBuilder.parse(System.in);
++        } catch (Exception e) {
++            throw new ToolException(e);
++        }
++    }
+     
+     public boolean isValid() throws ToolException {
+         //boolean isValid = true;
+         String schemaDir = getSchemaDir();
++        String[] ruleSetFilePaths = (String[])env.get(ToolConstants.CFG_ADDITION_WSDL_RULES_FILE);
+         SchemaValidator schemaValidator = null;
++        AdditionalRulesValidator additionalRulesValidator = null;
++        File stdInFile = null;
+         String[] schemas = (String[])env.get(ToolConstants.CFG_SCHEMA_URL);
+         // Tool will use the following sequence to find the schema files
+         // 1.ToolConstants.CFG_SCHEMA_DIR from ToolContext
+         // 2.ToolConstants.CXF_SCHEMA_DIR from System property
+         // 3.If 1 and 2 is null , then load these schema files from jar file
+         String wsdl = (String)env.get(ToolConstants.CFG_WSDLURL);
+-
++        if (useStandardInput) {
++            stdInFile = getFileFromStdinURL();
++            wsdl = stdInFile.getPath();
++        }
+         Document doc = getWSDLDoc(wsdl);
+         if (doc == null) {
+-            return true;
++            throw new ToolException("Wsdl file not found");
+         }
+         if (this.def == null) {
+             try {
+@@ -116,7 +169,14 @@
+                 throw new ToolException(e);
+             }
+         }
+-        
++        if (ruleSetFilePaths != null && ruleSetFilePaths.length != 0 && doc != null) {
++            additionalRulesValidator = 
++                new AdditionalRulesValidator(getRuleSetFiles(ruleSetFilePaths), doc);
++            if (!additionalRulesValidator.isValid()) {
++                this.addErrorMessage(additionalRulesValidator.getErrorMessage());            
++                throw new ToolException(this.getErrorMessage());
++            }
++        }
+         WSDLRefValidator wsdlRefValidator = new WSDLRefValidator(this.def, doc, getBus());
+         wsdlRefValidator.setSuppressWarnings(env.optionSet(ToolConstants.CFG_SUPPRESS_WARNINGS));        
+         validators.add(wsdlRefValidator);
+@@ -143,7 +203,6 @@
+         if (!env.fullValidateWSDL()) {
+             return true;
+         }
+-
+         if (!StringUtils.isEmpty(schemaDir)) {
+             schemaValidator = new SchemaValidator(schemaDir, wsdl, schemas);
+         } else {
+@@ -159,9 +218,52 @@
+             throw new ToolException(this.getErrorMessage());
+ 
+         }
+-        
++        if (stdInFile != null) {
++            stdInFile.delete();
++        }
+         return true;
+     }
++    public File[] getRuleSetFiles(String[] ruleFilesPaths) {
++        File[] ruleSetFiles = new File[ruleFilesPaths.length];
++        for (int i = 0; i < ruleFilesPaths.length; i++) {
++            ruleSetFiles[i] = getFile(ruleFilesPaths[i]);
++        }
++        return ruleSetFiles;
++    }
++    
++    public File getFileFromStdinURL() {
++        InputStream initialStream = null;
++        OutputStream outStream = null;
++        try {
++            initialStream = System.in;
++            File targetFile = File.createTempFile("tempValid", ".wsdl");
++            outStream = new FileOutputStream(targetFile);
++            byte[] buffer = new byte[8 * 1024];
++            int bytesRead;
++            while ((bytesRead = initialStream.read(buffer)) != -1) {
++                outStream.write(buffer, 0, bytesRead);
++            }
++            targetFile.deleteOnExit();
++            return targetFile;
++        } catch (IOException e) {
++            throw new ToolException(e);
++        } finally {
++            if (initialStream != null) {
++                try {
++                    initialStream.close();
++                } catch (IOException e) {
++                    e.printStackTrace();
++                }
++            }
++            if (outStream != null) {
++                try {
++                    outStream.close();
++                } catch (IOException e) {
++                    e.printStackTrace();
++                }
++            }
++        }
++    }
+ 
+     public String getSchemaDir() {
+         String dir = "";
+@@ -267,3 +369,4 @@
+         });
+     }
+ }
++
+diff --strip-trailing-cr -wruN apache-cxf-3.0.1-src_orig/tools/validator/src/main/java/org/apache/cxf/tools/validator/WSDLValidator.java apache-cxf-3.0.1-src_new/tools/validator/src/main/java/org/apache/cxf/tools/validator/WSDLValidator.java
+--- apache-cxf-3.0.1-src_orig/tools/validator/src/main/java/org/apache/cxf/tools/validator/WSDLValidator.java	2016-01-21 11:10:52.005053998 +0200
++++ apache-cxf-3.0.1-src_new/tools/validator/src/main/java/org/apache/cxf/tools/validator/WSDLValidator.java	2016-01-21 11:15:10.799642017 +0200
+@@ -46,6 +46,7 @@
+     private Set<String> getArrayKeys() {
+         Set<String> set = new HashSet<String>();
+         set.add(ToolConstants.CFG_SCHEMA_URL);
++        set.add(ToolConstants.CFG_ADDITION_WSDL_RULES_FILE);
+         return set;
+     }
+     
+@@ -59,8 +60,15 @@
+         env.put(ToolConstants.CFG_VALIDATE_WSDL, "all");
+         env.put(ToolConstants.CFG_CMD_ARG, getArgument());
+ 
++        String wsdlurl = (String)env.get(ToolConstants.CFG_WSDLURL);
++        boolean stInputOption = env.optionSet(ToolConstants.CFG_USE_STANDARD_INPUT);
++        if ((wsdlurl == null || wsdlurl.equals("true")) && !stInputOption) {
++            throw new ToolException("wsdlurl parameter or -st option must be used", 
++                 new BadUsageException(getUsage(), new ErrorVisitor()));
++        }
+       
+         WSDL11Validator wsdlValidator = new WSDL11Validator(null, env, getBus());
++        wsdlValidator.setUseStandardInput(stInputOption);
+         return wsdlValidator.isValid();
+     }
+ 
+@@ -76,11 +84,20 @@
+                 env.put(ToolConstants.CFG_VALIDATE_WSDL, "all");
+                 env.put(ToolConstants.CFG_CMD_ARG, getArgument());
+ 
++                String wsdlurl = (String)env.get(ToolConstants.CFG_WSDLURL);
++                boolean stInputOption = env.optionSet(ToolConstants.CFG_USE_STANDARD_INPUT);
++                if ((wsdlurl == null || wsdlurl.equals("true")) && !stInputOption) {
++                    throw new ToolException("wsdlurl parameter or -st option must be used", 
++                         new BadUsageException(getUsage(), new ErrorVisitor()));
++                }
+               
+                 WSDL11Validator wsdlValidator = new WSDL11Validator(null, env, getBus());
++                wsdlValidator.setUseStandardInput(env.optionSet(ToolConstants.CFG_USE_STANDARD_INPUT));
+                 if (wsdlValidator.isValid()) {
+                     System.out.println("Passed Validation : Valid WSDL ");
++                    System.exit(0);
+                 }
++                System.exit(1);
+             }
+         } catch (ToolException ex) {
+             err.println("WSDLValidator Error : " + ex.getMessage());
+@@ -93,6 +110,7 @@
+                 err.println();                
+                 ex.printStackTrace(err);
+             }
++            System.exit(1);
+         } catch (Exception ex) {
+             err.println("WSDLValidator Error : " + ex.getMessage());
+             err.println();
+@@ -101,6 +119,7 @@
+                 err.println();
+                 ex.printStackTrace(err);
+             }
++            System.exit(1);
+         }
+     }
+ 
+diff --strip-trailing-cr -wruN apache-cxf-3.0.1-src_orig/tools/validator/src/main/java/org/apache/cxf/tools/validator/wsdlvalidator.xml apache-cxf-3.0.1-src_new/tools/validator/src/main/java/org/apache/cxf/tools/validator/wsdlvalidator.xml
+--- apache-cxf-3.0.1-src_orig/tools/validator/src/main/java/org/apache/cxf/tools/validator/wsdlvalidator.xml	2016-01-21 11:10:52.005053998 +0200
++++ apache-cxf-3.0.1-src_new/tools/validator/src/main/java/org/apache/cxf/tools/validator/wsdlvalidator.xml	2016-01-21 11:15:10.799642017 +0200
+@@ -23,6 +23,7 @@
+ 
+ wsdlvalidator HelloWorld.wsdl
+ wsdlvalidator -s http://cxf.apache.org/schemas -s http://mycompany/schemas Greeting.wsdl
++wsdlvalidator -r rules.properties -r rules2.properties Greeting.wsdl
+     </annotation>
+     <usage>
+         <optionGroup id="options">
+@@ -44,12 +45,27 @@
+                     <annotation>schema-url</annotation>
+                 </associatedArgument>
+             </option>
++            <option id="ruleSetFile" maxOccurs="unbounded">
++                <annotation>
++                            Specify the Configuration File path with additional wsdl rules.  (This option can be specified multiple times.)
++                        </annotation>
++                <switch>r</switch>
++                <associatedArgument placement="afterSpace">
++                    <annotation>ruleset-file</annotation>
++                </associatedArgument>
++            </option>
+             <option id="suppressWarnings">
+                 <annotation>
+                                 Suppress warnings
+                             </annotation>
+                 <switch>w</switch>
+             </option>
++            <option id="useStandardInput" maxOccurs="1">
++                <annotation>
++                                Use wsdl from Standard input
++                            </annotation>
++                <switch>st</switch>
++            </option>
+             <!--option id="deep" maxOccurs="1">
+                       <annotation>Deep level validation like wsdl imports validation and wsdl semantics check.</annotation>
+                       <switch>deep</switch>
+@@ -87,7 +103,7 @@
+                 <switch>Q</switch>
+             </option>
+         </optionGroup>
+-        <argument id="wsdlurl" minOccurs="1" maxOccurs="1">
++        <argument id="wsdlurl" minOccurs="0" maxOccurs="1">
+             <annotation>
+                             WSDL URL
+                          </annotation>
+diff --strip-trailing-cr -wruN apache-cxf-3.0.1-src_orig/tools/validator/src/test/java/org/apache/cxf/tools/validator/internal/AdditionalRulesValidatorTest.java apache-cxf-3.0.1-src_new/tools/validator/src/test/java/org/apache/cxf/tools/validator/internal/AdditionalRulesValidatorTest.java
+--- apache-cxf-3.0.1-src_orig/tools/validator/src/test/java/org/apache/cxf/tools/validator/internal/AdditionalRulesValidatorTest.java	1970-01-01 03:00:00.000000000 +0300
++++ apache-cxf-3.0.1-src_new/tools/validator/src/test/java/org/apache/cxf/tools/validator/internal/AdditionalRulesValidatorTest.java	2016-01-21 11:15:10.803641997 +0200
+@@ -0,0 +1,54 @@
++/**
++ * Licensed to the Apache Software Foundation (ASF) under one
++ * or more contributor license agreements. See the NOTICE file
++ * distributed with this work for additional information
++ * regarding copyright ownership. The ASF licenses this file
++ * to you under the Apache License, Version 2.0 (the
++ * "License"); you may not use this file except in compliance
++ * with the License. You may obtain a copy of the License at
++ *
++ * http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing,
++ * software distributed under the License is distributed on an
++ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
++ * KIND, either express or implied. See the License for the
++ * specific language governing permissions and limitations
++ * under the License.
++ */
++
++package org.apache.cxf.tools.validator.internal;
++
++import java.io.File;
++
++import javax.xml.parsers.DocumentBuilder;
++import javax.xml.parsers.DocumentBuilderFactory;
++
++import org.w3c.dom.Document;
++import org.junit.Assert;
++import org.junit.Test;
++
++public class AdditionalRulesValidatorTest extends Assert {
++    
++    @Test
++    public void testWSDLImport() throws Exception {
++        File wsdlFile = new File(getClass().getResource(
++                "/validator_wsdl/aktorstest.wsdl").toURI());
++        File rulesFile = new File(getClass().getResource(
++                "/validator_wsdl/xroad5.properties").toURI());
++        File rulesFileAdditional = new File(getClass().getResource(
++               "/validator_wsdl/xroad5Error.properties").toURI());
++        File[] rulesFiles = new File[2];
++        rulesFiles[0] = rulesFile;
++        rulesFiles[1] = rulesFileAdditional;
++        
++        DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
++        dbFactory.setNamespaceAware(true);
++        DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
++        Document doc = dBuilder.parse(wsdlFile);
++         
++        AdditionalRulesValidator additionalRulesValidator = new AdditionalRulesValidator(rulesFiles, doc);
++  
++        assertFalse(additionalRulesValidator.isValid());      
++    }
++}
+diff --strip-trailing-cr -wruN apache-cxf-3.0.1-src_orig/tools/validator/src/test/java/org/apache/cxf/tools/validator/internal/WSDL11ValidatorTest.java apache-cxf-3.0.1-src_new/tools/validator/src/test/java/org/apache/cxf/tools/validator/internal/WSDL11ValidatorTest.java
+--- apache-cxf-3.0.1-src_orig/tools/validator/src/test/java/org/apache/cxf/tools/validator/internal/WSDL11ValidatorTest.java	2016-01-21 11:10:52.005053998 +0200
++++ apache-cxf-3.0.1-src_new/tools/validator/src/test/java/org/apache/cxf/tools/validator/internal/WSDL11ValidatorTest.java	2016-01-21 11:15:10.803641997 +0200
+@@ -19,11 +19,17 @@
+ 
+ package org.apache.cxf.tools.validator.internal;
+ 
++import java.io.FileInputStream;
++import java.io.InputStream;
++/**import javax.xml.parsers.DocumentBuilder;
++import javax.xml.parsers.DocumentBuilderFactory;
++import org.w3c.dom.Document;**/
+ import org.apache.cxf.tools.common.ToolConstants;
+ import org.apache.cxf.tools.common.ToolContext;
+ import org.junit.Assert;
+ import org.junit.Test;
+ 
++
+ public class WSDL11ValidatorTest extends Assert {
+     private ToolContext context = new ToolContext();
+     
+@@ -40,4 +46,18 @@
+                                               + "[portType:GreeterA][operation:sayHi] not exist.") != -1);
+         }
+     }
++    @Test
++    public void testWSDLFromStdin() throws Exception {
++        try {           
++            context.put(ToolConstants.CFG_USE_STANDARD_INPUT, true);
++            InputStream is = new FileInputStream("src/test/resources/validator_wsdl/aktorstest.wsdl");            
++            System.setIn(is);
++            
++            WSDL11Validator validator = new WSDL11Validator(null, context);
++            validator.setUseStandardInput(true);
++            assertTrue(validator.isValid());
++        } catch (Exception e) {
++            fail("Wsdl is not found or convertion to dom.Document failed " + e);
++        }
++    }
+ }
+diff --strip-trailing-cr -wruN apache-cxf-3.0.1-src_orig/tools/validator/src/test/java/org/apache/cxf/tools/validator/WSDLValidationTest.java apache-cxf-3.0.1-src_new/tools/validator/src/test/java/org/apache/cxf/tools/validator/WSDLValidationTest.java
+--- apache-cxf-3.0.1-src_orig/tools/validator/src/test/java/org/apache/cxf/tools/validator/WSDLValidationTest.java	2016-01-21 11:10:52.005053998 +0200
++++ apache-cxf-3.0.1-src_new/tools/validator/src/test/java/org/apache/cxf/tools/validator/WSDLValidationTest.java	2016-01-21 11:15:10.803641997 +0200
+@@ -21,13 +21,18 @@
+ import java.io.File;
+ import java.net.URL;
+ import java.util.Enumeration;
+-
+ import org.apache.cxf.staxutils.StaxUtils;
+ import org.apache.cxf.tools.common.ToolTestBase;
+ import org.junit.Before;
++import org.junit.Rule;
+ import org.junit.Test;
++import org.junit.contrib.java.lang.system.ExpectedSystemExit;
+ 
+ public class WSDLValidationTest extends ToolTestBase {
++	//CHECKSTYLE:OFF
++    @Rule
++    public final ExpectedSystemExit exit = ExpectedSystemExit.none();
++    //CHECKSTYLE:ON
+     @Before    
+     public void setUp() {
+         super.setUp();
+@@ -37,6 +42,7 @@
+     public void testValidateDefaultOpMessageNames() throws Exception {
+         String[] args = new String[] {"-verbose",
+                                       getLocation("/validator_wsdl/defaultOpMessageNames.wsdl")};
++        exit.expectSystemExitWithStatus(0);
+         WSDLValidator.main(args);
+         assertTrue(this.getStdOut().contains("Valid WSDL"));
+     }
+@@ -108,6 +114,7 @@
+     public void testImportWsdlValidation() throws Exception {
+         String[] args = new String[] {"-verbose",
+                                       getLocation("/validator_wsdl/hello_world_import.wsdl")};
++        exit.expectSystemExitWithStatus(0);
+         WSDLValidator.main(args);
+         
+         assertTrue("Is not valid wsdl!: " + getStdOut(),
+@@ -118,6 +125,7 @@
+     public void testImportSchemaValidation() throws Exception {
+         String[] args = new String[] {"-verbose",
+                                       getLocation("/validator_wsdl/hello_world_schema_import.wsdl")};
++        exit.expectSystemExitWithStatus(0);
+         WSDLValidator.main(args);
+         
+         assertTrue("Is not valid wsdl: " + getStdOut(),
+@@ -127,6 +135,7 @@
+     public void testSOAPHeadersInMultiOperations() throws Exception {
+         String[] args = new String[] {"-verbose",
+                                       getLocation("/validator_wsdl/cxf1793.wsdl")};
++        exit.expectSystemExitWithStatus(0);
+         WSDLValidator.main(args);
+         assertTrue(getStdErr(), getStdOut().indexOf("Passed Validation : Valid WSDL") > -1);
+     }
+@@ -160,6 +169,7 @@
+     public void testWSIBPR2203() throws Exception {
+         String[] args = new String[] {"-verbose",
+                                       getLocation("/validator_wsdl/header_rpc_lit.wsdl")};
++        exit.expectSystemExitWithStatus(0);
+         WSDLValidator.main(args);
+         assertTrue(getStdOut().indexOf("Passed Validation : Valid WSDL") > -1);
+ 
+diff --strip-trailing-cr -wruN apache-cxf-3.0.1-src_orig/tools/validator/src/test/resources/validator_wsdl/aktorstest.wsdl apache-cxf-3.0.1-src_new/tools/validator/src/test/resources/validator_wsdl/aktorstest.wsdl
+--- apache-cxf-3.0.1-src_orig/tools/validator/src/test/resources/validator_wsdl/aktorstest.wsdl	1970-01-01 03:00:00.000000000 +0300
++++ apache-cxf-3.0.1-src_new/tools/validator/src/test/resources/validator_wsdl/aktorstest.wsdl	2016-01-21 11:15:10.803641997 +0200
+@@ -0,0 +1,842 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<definitions targetNamespace="http://aktorstest.x-road.ee/producer" 
++xmlns="http://schemas.xmlsoap.org/wsdl/" 
++xmlns:ns1="http://www.w3.org/1999/xlink" 
++xmlns:ns="http://schemas.xmlsoap.org/soap/encoding/" 
++xmlns:wsaw="http://www.w3.org/2006/05/addressing/wsdl" 
++xmlns:wsdl="http://www.w3.org/ns/wsdl" 
++xmlns:tns="http://aktorstest.x-road.ee/producer" 
++xmlns:xsd="http://www.w3.org/2001/XMLSchema" 
++xmlns:xmime="http://www.w3.org/2005/05/xmlmime" 
++xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" 
++xmlns:mime="http://schemas.xmlsoap.org/wsdl/mime/" 
++xmlns:xrd="http://x-road.ee/xsd/x-road.xsd">
++	<types>
++		<schema targetNamespace="http://aktorstest.x-road.ee/producer" xmlns="http://www.w3.org/2001/XMLSchema">
++			<import namespace="http://x-road.ee/xsd/x-road.xsd" schemaLocation="http://x-road.ee/xsd/x-road.xsd"/>
++			<import namespace="http://www.w3.org/2005/05/xmlmime" schemaLocation="http://www.w3.org/2005/05/xmlmime"/>
++			<element name="isikuteList">
++				<complexType>
++					<sequence>
++						<element name="request">
++							<complexType>
++								<sequence>
++									<element name="eesnimi" type="string">
++										<annotation>
++											<appinfo>
++												<xrd:title xml:lang="en">Given name</xrd:title>
++												<xrd:title xml:lang="et">Eesnimi</xrd:title>
++											</appinfo>
++										</annotation>
++									</element>
++									<element name="perenimi" type="string">
++										<annotation>
++											<appinfo>
++												<xrd:title xml:lang="en">Surname</xrd:title>
++												<xrd:title xml:lang="et">Perenimi</xrd:title>
++											</appinfo>
++										</annotation>
++									</element>
++								</sequence>
++							</complexType>
++						</element>
++					</sequence>
++				</complexType>
++			</element>
++			<element name="isikuteListResponse">
++				<complexType>
++					<sequence>
++						<element name="request">
++							<complexType>
++								<sequence>
++									<element name="eesnimi" nillable="true" type="string"/>
++									<element name="perenimi" nillable="true" type="string"/>
++								</sequence>
++							</complexType>
++						</element>
++						<element name="response">
++							<complexType>
++								<sequence>
++									<element name="faultCode" nillable="true" type="xrd:faultCode"/>
++									<element name="faultString" nillable="true" type="xrd:faultString"/>
++									<element maxOccurs="unbounded" minOccurs="0" name="isik" nillable="true" type="tns:isik_short">
++										<annotation>
++											<appinfo>
++												<xrd:title xml:lang="en">Person's data</xrd:title>
++												<xrd:title xml:lang="et">Isiku andmed</xrd:title>
++											</appinfo>
++										</annotation>
++									</element>
++								</sequence>
++							</complexType>
++						</element>
++					</sequence>
++				</complexType>
++			</element>
++			<element name="isikOtsing">
++				<complexType>
++					<sequence>
++						<element name="request">
++							<complexType>
++								<sequence>
++									<element name="isikukood" type="string">
++										<annotation>
++											<appinfo>
++												<xrd:title xml:lang="en">Perconal ID code</xrd:title>
++												<xrd:title xml:lang="et">Isikukood</xrd:title>
++											</appinfo>
++										</annotation>
++									</element>
++								</sequence>
++							</complexType>
++						</element>
++					</sequence>
++				</complexType>
++			</element>
++			<element name="isikOtsingResponse">
++				<complexType>
++					<sequence>
++						<element name="request">
++							<complexType>
++								<sequence>
++									<element name="isikukood" nillable="true" type="string"/>
++								</sequence>
++							</complexType>
++						</element>
++						<element name="response">
++							<complexType>
++								<sequence>
++									<element name="faultCode" nillable="true" type="xrd:faultCode"/>
++									<element name="faultString" nillable="true" type="xrd:faultString"/>
++									<element name="isiku_andmed" nillable="true" type="tns:isik"/>
++								</sequence>
++							</complexType>
++						</element>
++					</sequence>
++				</complexType>
++			</element>
++			<element name="changeAddress">
++				<complexType>
++					<sequence>
++						<element name="request">
++							<complexType>
++								<sequence>
++									<element name="isikukood" type="string">
++										<annotation>
++											<appinfo>
++												<xrd:title xml:lang="et">Isikukood</xrd:title>
++												<xrd:title xml:lang="en">Personal ID code</xrd:title>
++											</appinfo>
++										</annotation>
++									</element>
++									<element name="aadress" type="tns:aadress"/>
++								</sequence>
++							</complexType>
++						</element>
++					</sequence>
++				</complexType>
++			</element>
++			<element name="changeAddressResponse">
++				<complexType>
++					<sequence>
++						<element name="request">
++							<complexType>
++								<sequence>
++									<element name="isikukood" nillable="true" type="string"/>
++								</sequence>
++							</complexType>
++						</element>
++						<element name="response">
++							<complexType>
++								<sequence>
++									<element name="faultCode" nillable="true" type="xrd:faultCode"/>
++									<element name="faultString" nillable="true" type="xrd:faultString"/>
++								</sequence>
++							</complexType>
++						</element>
++					</sequence>
++				</complexType>
++			</element>
++			<element name="fileDownload">
++				<complexType>
++					<sequence>
++						<element name="request">
++							<complexType>
++								<sequence>
++									<element name="fileName" nillable="true" type="string">
++										<annotation>
++											<appinfo>
++												<xrd:title xml:lang="en">FileName</xrd:title>
++											</appinfo>
++										</annotation>
++									</element>
++								</sequence>
++							</complexType>
++						</element>
++					</sequence>
++				</complexType>
++			</element>
++			<element name="fileDownloadResponse">
++				<complexType>
++					<sequence>
++						<element name="request">
++							<complexType>
++								<sequence>
++									<element name="fileName" nillable="true" type="string"/>
++								</sequence>
++							</complexType>
++						</element>
++						<element name="response">
++							<complexType>
++								<sequence>
++									<element name="faultCode" nillable="true" type="xrd:faultCode"/>
++									<element name="faultString" nillable="true" type="xrd:faultString"/>
++									<element name="file" nillable="true">
++										<annotation>
++											<appinfo>
++												<xrd:title xml:lang="en">File</xrd:title>
++											</appinfo>
++										</annotation>
++										<complexType>
++											<attribute name="href" type="string"/>
++										</complexType>
++									</element>
++								</sequence>
++							</complexType>
++						</element>
++					</sequence>
++				</complexType>
++			</element>
++			<element name="fileUpload">
++				<complexType>
++					<sequence>
++						<element name="request">
++							<complexType>
++								<sequence>
++									<element name="fileName" nillable="true" type="string">
++										<annotation>
++											<appinfo>
++												<xrd:title xml:lang="en">FileName</xrd:title>
++											</appinfo>
++										</annotation>
++									</element>
++								</sequence>
++							</complexType>
++						</element>
++					</sequence>
++				</complexType>
++			</element>
++			<element name="fileUploadResponse">
++				<complexType>
++					<sequence>
++						<element name="request">
++							<complexType>
++								<sequence>
++									<element name="fileName" nillable="true" type="string"/>
++								</sequence>
++							</complexType>
++						</element>
++						<element name="response">
++							<complexType>
++								<sequence>
++									<element name="faultCode" nillable="true" type="xrd:faultCode"/>
++									<element name="faultString" nillable="true" type="xrd:faultString"/>
++								</sequence>
++							</complexType>
++						</element>
++					</sequence>
++				</complexType>
++			</element>
++			<element name="fileDownloadMTOM">
++				<complexType>
++					<sequence>
++						<element name="request">
++							<complexType>
++								<sequence>
++									<element name="fileName" nillable="true" type="string">
++										<annotation>
++											<appinfo>
++												<xrd:title xml:lang="en">FileName</xrd:title>
++											</appinfo>
++										</annotation>
++									</element>
++								</sequence>
++							</complexType>
++						</element>
++					</sequence>
++				</complexType>
++			</element>
++			<element name="fileDownloadMTOMResponse">
++				<complexType>
++					<sequence>
++						<element name="request">
++							<complexType>
++								<sequence>
++									<element name="fileName" nillable="true" type="string"/>
++								</sequence>
++							</complexType>
++						</element>
++						<element name="response">
++							<complexType>
++								<sequence>
++									<element name="faultCode" nillable="true" type="xrd:faultCode"/>
++									<element name="faultString" nillable="true" type="xrd:faultString"/>
++									<element name="file" type="base64Binary" xmime:expectedContentTypes="image/jpeg"/>
++								</sequence>
++							</complexType>
++						</element>
++					</sequence>
++				</complexType>
++			</element>
++			<element name="fileUploadMTOM">
++				<complexType>
++					<sequence>
++						<element name="request">
++							<complexType>
++								<sequence>
++									<element name="filemtom" type="base64Binary" xmime:expectedContentTypes="image/jpeg"/>
++									<element name="fileName" nillable="true" type="string">
++										<annotation>
++											<appinfo>
++												<xrd:title xml:lang="en">FileName</xrd:title>
++											</appinfo>
++										</annotation>
++									</element>
++								</sequence>
++							</complexType>
++						</element>
++					</sequence>
++				</complexType>
++			</element>
++			<element name="fileUploadMTOMResponse">
++				<complexType>
++					<sequence>
++						<element name="request">
++							<complexType>
++								<sequence>
++									<element name="fileName" nillable="true" type="string"/>
++								</sequence>
++							</complexType>
++						</element>
++						<element name="response">
++							<complexType>
++								<sequence>
++
++
++
++
++									<element name="faultCode" nillable="true" type="xrd:faultCode"/>
++									<element name="faultString" nillable="true" type="xrd:faultString"/>
++								</sequence>
++							</complexType>
++						</element>
++					</sequence>
++				</complexType>
++			</element>
++			<complexType name="isik">
++				<all>
++					<element name="eesnimi" type="string">
++						<annotation>
++							<appinfo>
++								<xrd:title xml:lang="en">Given name</xrd:title>
++								<xrd:title xml:lang="et">Eesnimi</xrd:title>
++							</appinfo>
++						</annotation>
++					</element>
++					<element name="perenimi" type="string">
++						<annotation>
++							<appinfo>
++								<xrd:title xml:lang="en">Surname</xrd:title>
++								<xrd:title xml:lang="et">Perenimi</xrd:title>
++							</appinfo>
++						</annotation>
++					</element>
++					<element name="isikukood" type="string">
++						<annotation>
++							<appinfo>
++								<xrd:title xml:lang="en">Personal ID code</xrd:title>
++								<xrd:title xml:lang="et">Isikukood</xrd:title>
++							</appinfo>
++						</annotation>
++					</element>
++					<element name="tookoht" type="tns:tookoht"/>
++					<element name="aadress" type="tns:aadress">
++						<annotation>
++							<appinfo>
++								<xrd:title xml:lang="en">Address</xrd:title>
++								<xrd:title xml:lang="et">Aadress</xrd:title>
++							</appinfo>
++						</annotation>
++					</element>
++					<element name="telefon" type="string">
++						<annotation>
++							<appinfo>
++								<xrd:title xml:lang="en">Phone number</xrd:title>
++								<xrd:title xml:lang="et">Kontakttelefon</xrd:title>
++							</appinfo>
++						</annotation>
++					</element>
++					<element name="epost" type="string">
++						<annotation>
++							<appinfo>
++								<xrd:title xml:lang="en">E-mail</xrd:title>
++								<xrd:title xml:lang="en">E-post</xrd:title>
++							</appinfo>
++						</annotation>
++					</element>
++					<element name="foto" nillable="true" type="xrd:jpg"/>
++				</all>
++			</complexType>
++			<complexType name="isik_short">
++				<all>
++					<element name="eesnimi" type="string">
++						<annotation>
++							<appinfo>
++								<xrd:title xml:lang="en">Given name</xrd:title>
++								<xrd:title xml:lang="et">Eesnimi</xrd:title>
++							</appinfo>
++						</annotation>
++					</element>
++					<element name="perenimi" type="string">
++						<annotation>
++							<appinfo>
++								<xrd:title xml:lang="en">Surname</xrd:title>
++								<xrd:title xml:lang="et">Perenimi</xrd:title>
++							</appinfo>
++						</annotation>
++					</element>
++					<element name="isikukood" type="string">
++						<annotation>
++							<appinfo>
++								<xrd:title xml:lang="en">Personal ID code</xrd:title>
++								<xrd:title xml:lang="et">Isikukood</xrd:title>
++							</appinfo>
++						</annotation>
++					</element>
++				</all>
++			</complexType>
++			<complexType name="aadress">
++				<all>
++					<element name="maakond" type="xrd:maakond">
++						<annotation>
++							<appinfo>
++								<xrd:title xml:lang="en">State</xrd:title>
++								<xrd:title xml:lang="et">Maakond</xrd:title>
++							</appinfo>
++						</annotation>
++					</element>
++					<element name="linnvald" type="string">
++						<annotation>
++							<appinfo>
++								<xrd:title xml:lang="en">City</xrd:title>
++								<xrd:title xml:lang="et">Linn/Vald</xrd:title>
++							</appinfo>
++						</annotation>
++					</element>
++					<element name="tanav" type="string">
++						<annotation>
++							<appinfo>
++								<xrd:title xml:lang="en">Street</xrd:title>
++								<xrd:title xml:lang="et">Tänav</xrd:title>
++							</appinfo>
++						</annotation>
++					</element>
++					<element name="majaNr" type="string">
++						<annotation>
++							<appinfo>
++								<xrd:title xml:lang="en">House nr.</xrd:title>
++								<xrd:title xml:lang="et">Maja nr.</xrd:title>
++							</appinfo>
++						</annotation>
++					</element>
++					<element name="korteriNr" type="integer">
++						<annotation>
++							<appinfo>
++								<xrd:title xml:lang="en">Flat nr.</xrd:title>
++								<xrd:title xml:lang="et">Korteri nr.</xrd:title>
++							</appinfo>
++						</annotation>
++					</element>
++				</all>
++			</complexType>
++			<complexType name="tookoht">
++				<all>
++					<element name="asutusekood" type="string">
++						<annotation>
++							<appinfo>
++								<xrd:title xml:lang="en">Employer's kood</xrd:title>
++								<xrd:title xml:lang="et">Asutuse kood</xrd:title>
++							</appinfo>
++						</annotation>
++					</element>
++					<element name="nimi" type="string">
++						<annotation>
++							<appinfo>
++								<xrd:title xml:lang="en">Employer's name</xrd:title>
++								<xrd:title xml:lang="et">Asutuse nimi</xrd:title>
++							</appinfo>
++						</annotation>
++					</element>
++					<element name="aadress" type="tns:aadress">
++						<annotation>
++							<appinfo>
++								<xrd:title xml:lang="en">Address</xrd:title>
++								<xrd:title xml:lang="et">Aadress</xrd:title>
++							</appinfo>
++						</annotation>
++					</element>
++				</all>
++			</complexType>
++			<element name="unitValid" type="xrd:unitValid"/>
++			<element name="unitValidResponse" type="xrd:unitValidResponse"/>
++			<element name="unitRepresent" type="xrd:unitRepresent"/>
++			<element name="unitRepresentResponse" type="xrd:unitRepresentResponse"/>
++		</schema>
++	</types>
++	<message name="isikOtsingResponse">
++		<part name="body" element="tns:isikOtsingResponse"/>
++	</message>
++	<message name="testSystem">
++		<part name="body" element="xrd:testSystem"/>
++	</message>
++	<message name="unitRepresent">
++		<part name="body" element="tns:unitRepresent"/>
++	</message>
++	<message name="fileUploadMTOMResponse">
++		<part name="body" element="tns:fileUploadMTOMResponse"/>
++	</message>
++	<message name="listMethodsResponse">
++		<part name="body" element="xrd:listMethodsResponse"/>
++	</message>
++	<message name="changeAddressResponse">
++		<part name="body" element="tns:changeAddressResponse"/>
++	</message>
++	<message name="loadClassification">
++		<part name="body" element="xrd:loadClassification"/>
++	</message>
++	<message name="fileDownloadResponse">
++		<part name="body" element="tns:fileDownloadResponse"/>
++		<part name="file" type="xsd:base64Binary"/>
++	</message>
++	<message name="unitValid">
++		<part name="body" element="tns:unitValid"/>
++	</message>
++	<message name="listMethods">
++		<part name="body" element="xrd:listMethods"/>
++	</message>
++	<message name="isikOtsing">
++		<part name="body" element="tns:isikOtsing"/>
++	</message>
++	<message name="fileDownloadMTOMResponse">
++		<part name="body" element="tns:fileDownloadMTOMResponse"/>
++	</message>
++	<message name="fileDownload">
++		<part name="body" element="tns:fileDownload"/>
++	</message>
++	<message name="isikuteListResponse">
++		<part name="body" element="tns:isikuteListResponse"/>
++	</message>
++	<message name="unitValidResponse">
++		<part name="body" element="tns:unitValidResponse"/>
++	</message>
++	<message name="fileDownloadMTOM">
++		<part name="body" element="tns:fileDownloadMTOM"/>
++	</message>
++	<message name="fileUpload">
++		<part name="body" element="tns:fileUpload"/>
++		<part name="file" type="xsd:base64Binary"/>
++	</message>
++	<message name="fileUploadMTOM">
++		<part name="body" element="tns:fileUploadMTOM"/>
++	</message>
++	<message name="unitRepresentResponse">
++		<part name="body" element="tns:unitRepresentResponse"/>
++	</message>
++	<message name="changeAddress">
++		<part name="body" element="tns:changeAddress"/>
++	</message>
++	<message name="testSystemResponse">
++		<part name="body" element="xrd:testSystemResponse"/>
++	</message>
++	<message name="loadClassificationResponse">
++		<part name="body" element="xrd:loadClassificationResponse"/>
++	</message>
++	<message name="isikuteList">
++		<part name="body" element="tns:isikuteList"/>
++	</message>
++	<message name="fileUploadResponse">
++		<part name="body" element="tns:fileUploadResponse"/>
++	</message>
++	<message name="standardheader">
++		<part name="consumer" element="xrd:consumer"/>
++		<part name="producer" element="xrd:producer"/>
++		<part name="userId" element="xrd:userId"/>
++		<part name="service" element="xrd:service"/>
++		<part name="id" element="xrd:id"/>
++	</message>
++	<portType name="TestPortType">
++		<operation name="isikuteList">
++			<documentation>
++				<xrd:title xml:lang="et">Isikute nimekirja teenus</xrd:title>
++				<xrd:title xml:lang="en">List of persons</xrd:title>
++			</documentation>
++			<input message="tns:isikuteList"/>
++			<output message="tns:isikuteListResponse"/>
++		</operation>
++		<operation name="isikOtsing">
++			<documentation>
++				<xrd:title xml:lang="et">Isiku andmete otsimine isikukoodi järgi</xrd:title>
++				<xrd:title xml:lang="en">Search person by Id-code</xrd:title>
++			</documentation>
++			<input message="tns:isikOtsing"/>
++			<output message="tns:isikOtsingResponse"/>
++		</operation>
++		<operation name="listMethods">
++			<documentation>
++				<xrd:title xml:lang="en">listMethods</xrd:title>
++			</documentation>
++			<input message="tns:listMethods"/>
++			<output message="tns:listMethodsResponse"/>
++		</operation>
++		<operation name="testSystem">
++			<documentation>
++				<xrd:title xml:lang="en">testSystem</xrd:title>
++			</documentation>
++			<input message="tns:testSystem"/>
++			<output message="tns:testSystemResponse"/>
++		</operation>
++		<operation name="unitValid">
++			<documentation>
++				<xrd:title xml:lang="en">unitValid</xrd:title>
++			</documentation>
++			<input message="tns:unitValid"/>
++			<output message="tns:unitValidResponse"/>
++		</operation>
++		<operation name="unitRepresent">
++			<documentation>
++				<xrd:title xml:lang="en">unitRepresent</xrd:title>
++			</documentation>
++			<input message="tns:unitRepresent"/>
++			<output message="tns:unitRepresentResponse"/>
++		</operation>
++		<operation name="loadClassification">
++			<documentation>
++				<xrd:title xml:lang="en">loadClassification</xrd:title>
++			</documentation>
++			<input message="tns:loadClassification"/>
++			<output message="tns:loadClassificationResponse"/>
++		</operation>
++		<operation name="fileDownloadMTOM">
++			<documentation>
++				<xrd:title xml:lang="et">Faili allalaadimine (MTOM)</xrd:title>
++				<xrd:title xml:lang="en">File Download (MTOM)</xrd:title>
++			</documentation>
++			<input message="tns:fileDownloadMTOM"/>
++			<output message="tns:fileDownloadMTOMResponse"/>
++		</operation>
++		<operation name="fileUploadMTOM">
++			<documentation>
++				<xrd:title xml:lang="et">Faili üleslaadimine (MTOM)</xrd:title>
++				<xrd:title xml:lang="en">File Upload (MTOM)</xrd:title>
++			</documentation>
++			<input message="tns:fileUploadMTOM"/>
++			<output message="tns:fileUploadMTOMResponse"/>
++		</operation>
++		<operation name="changeAddress">
++			<documentation>
++				<xrd:title xml:lang="et">Aadressi muutmine</xrd:title>
++				<xrd:title xml:lang="en">Change Address</xrd:title>
++			</documentation>
++			<input message="tns:changeAddress"/>
++			<output message="tns:changeAddressResponse"/>
++		</operation>
++	</portType>
++	<binding name="TestSoapBinding" type="tns:TestPortType">
++		<soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
++		<operation name="isikuteList">
++			<soap:operation soapAction="" style="document"/>
++			<xrd:version>v1</xrd:version>
++			<input>
++				<soap:body parts="body" use="literal"/>
++				<soap:header message="tns:standardheader" part="consumer" use="literal"/>
++				<soap:header message="tns:standardheader" part="producer" use="literal"/>
++				<soap:header message="tns:standardheader" part="userId" use="literal"/>
++				<soap:header message="tns:standardheader" part="id" use="literal"/>
++				<soap:header message="tns:standardheader" part="service" use="literal"/>
++			</input>
++			<output>
++				<soap:body parts="body" use="literal"/>
++				<soap:header message="tns:standardheader" part="consumer" use="literal"/>
++				<soap:header message="tns:standardheader" part="producer" use="literal"/>
++				<soap:header message="tns:standardheader" part="userId" use="literal"/>
++				<soap:header message="tns:standardheader" part="id" use="literal"/>
++				<soap:header message="tns:standardheader" part="service" use="literal"/>
++			</output>
++		</operation>
++		<operation name="isikOtsing">
++			<soap:operation soapAction="" style="document"/>
++			<xrd:version>v1</xrd:version>
++			<input>
++				<soap:body parts="body" use="literal"/>
++				<soap:header message="tns:standardheader" part="consumer" use="literal"/>
++				<soap:header message="tns:standardheader" part="producer" use="literal"/>
++				<soap:header message="tns:standardheader" part="userId" use="literal"/>
++				<soap:header message="tns:standardheader" part="id" use="literal"/>
++				<soap:header message="tns:standardheader" part="service" use="literal"/>
++			</input>
++			<output>
++				<soap:body parts="body" use="literal"/>
++				<soap:header message="tns:standardheader" part="consumer" use="literal"/>
++				<soap:header message="tns:standardheader" part="producer" use="literal"/>
++				<soap:header message="tns:standardheader" part="userId" use="literal"/>
++				<soap:header message="tns:standardheader" part="id" use="literal"/>
++				<soap:header message="tns:standardheader" part="service" use="literal"/>
++			</output>
++		</operation>
++		<operation name="listMethods">
++			<soap:operation soapAction="" style="document"/>
++			<input>
++				<soap:body parts="body" use="literal" />
++			</input>
++			<output>
++				<soap:body parts="body" use="literal" />
++			</output>
++		</operation>
++		<operation name="testSystem">
++			<soap:operation soapAction="" style="document"/>
++			<input>
++				<soap:body parts="body" use="literal"/>
++			</input>
++			<output>
++				<soap:body parts="body" use="literal"/>
++			</output>
++		</operation>
++		<operation name="unitValid">
++			<soap:operation soapAction="" style="document"/>
++			<input>
++				<soap:body parts="body" use="literal"/>
++				<soap:header message="tns:standardheader" part="consumer" use="literal"/>
++				<soap:header message="tns:standardheader" part="producer" use="literal"/>
++				<soap:header message="tns:standardheader" part="userId" use="literal"/>
++				<soap:header message="tns:standardheader" part="id" use="literal"/>
++				<soap:header message="tns:standardheader" part="service" use="literal"/>
++			</input>
++			<output>
++				<soap:body parts="body" use="literal"/>
++				<soap:header message="tns:standardheader" part="consumer" use="literal"/>
++				<soap:header message="tns:standardheader" part="producer" use="literal"/>
++				<soap:header message="tns:standardheader" part="userId" use="literal"/>
++				<soap:header message="tns:standardheader" part="id" use="literal"/>
++				<soap:header message="tns:standardheader" part="service" use="literal"/>
++			</output>
++		</operation>
++		<operation name="unitRepresent">
++			<soap:operation soapAction="" style="document"/>
++			<input>
++				<soap:body parts="body" use="literal"/>
++				<soap:header message="tns:standardheader" part="consumer" use="literal"/>
++				<soap:header message="tns:standardheader" part="producer" use="literal"/>
++				<soap:header message="tns:standardheader" part="userId" use="literal"/>
++				<soap:header message="tns:standardheader" part="id" use="literal"/>
++
++
++				<soap:header message="tns:standardheader" part="service" use="literal"/>
++			</input>
++			<output>
++				<soap:body parts="body" use="literal"/>
++				<soap:header message="tns:standardheader" part="consumer" use="literal"/>
++				<soap:header message="tns:standardheader" part="producer" use="literal"/>
++				<soap:header message="tns:standardheader" part="userId" use="literal"/>
++
++				<soap:header message="tns:standardheader" part="id" use="literal"/>
++				<soap:header message="tns:standardheader" part="service" use="literal"/>
++			</output>
++		</operation>
++		<operation name="loadClassification">
++			<soap:operation soapAction="" style="document"/>
++			<input>
++				<soap:body parts="body" use="literal"/>
++				<soap:header message="tns:standardheader" part="consumer" use="literal"/>
++				<soap:header message="tns:standardheader" part="producer" use="literal"/>
++				<soap:header message="tns:standardheader" part="userId" use="literal"/>
++				<soap:header message="tns:standardheader" part="id" use="literal"/>
++				<soap:header message="tns:standardheader" part="service" use="literal"/>
++			</input>
++			<output>
++				<soap:body parts="body" use="literal"/>
++				<soap:header message="tns:standardheader" part="consumer" use="literal"/>
++				<soap:header message="tns:standardheader" part="producer" use="literal"/>
++				<soap:header message="tns:standardheader" part="userId" use="literal"/>
++				<soap:header message="tns:standardheader" part="id" use="literal"/>
++				<soap:header message="tns:standardheader" part="service" use="literal"/>
++			</output>
++		</operation>
++		<operation name="fileDownloadMTOM">
++			<soap:operation soapAction="" style="document"/>
++			<xrd:version>v1</xrd:version>
++			<input>
++				<soap:body parts="body" use="literal"/>
++				<soap:header message="tns:standardheader" part="consumer" use="literal"/>
++				<soap:header message="tns:standardheader" part="producer" use="literal"/>
++				<soap:header message="tns:standardheader" part="userId" use="literal"/>
++				<soap:header message="tns:standardheader" part="id" use="literal"/>
++				<soap:header message="tns:standardheader" part="service" use="literal"/>
++			</input>
++			<output>
++				<soap:body use="literal"/>
++				<soap:header message="tns:standardheader" part="consumer" use="literal"/>
++				<soap:header message="tns:standardheader" part="producer" use="literal"/>
++				<soap:header message="tns:standardheader" part="userId" use="literal"/>
++				<soap:header message="tns:standardheader" part="id" use="literal"/>
++				<soap:header message="tns:standardheader" part="service" use="literal"/>
++			</output>
++		</operation>
++		<operation name="fileUploadMTOM">
++			<soap:operation soapAction="" style="document"/>
++			<xrd:version>v1</xrd:version>
++			<input>
++				<soap:body parts="body" use="literal"/>
++				<soap:header message="tns:standardheader" part="consumer" use="literal"/>
++				<soap:header message="tns:standardheader" part="producer" use="literal"/>
++				<soap:header message="tns:standardheader" part="userId" use="literal"/>
++				<soap:header message="tns:standardheader" part="id" use="literal"/>
++				<soap:header message="tns:standardheader" part="service" use="literal"/>
++			</input>
++			<output>
++				<soap:body parts="body" use="literal"/>
++				<soap:header message="tns:standardheader" part="consumer" use="literal"/>
++				<soap:header message="tns:standardheader" part="producer" use="literal"/>
++				<soap:header message="tns:standardheader" part="userId" use="literal"/>
++				<soap:header message="tns:standardheader" part="id" use="literal"/>
++				<soap:header message="tns:standardheader" part="service" use="literal"/>
++			</output>
++		</operation>
++		<operation name="changeAddress">
++			<soap:operation soapAction="" style="document"/>
++			<xrd:version>v1</xrd:version>
++			<input>
++				<soap:header message="tns:standardheader" part="consumer" use="literal"/>
++				<soap:header message="tns:standardheader" part="producer" use="literal"/>
++				<soap:header message="tns:standardheader" part="userId" use="literal"/>
++				<soap:header message="tns:standardheader" part="id" use="literal"/>
++				<soap:header message="tns:standardheader" part="service" use="literal"/>
++			</input>
++			<output>
++				<soap:body parts="body" use="literal"/>
++				<soap:header message="tns:standardheader" part="consumer" use="literal"/>
++				<soap:header message="tns:standardheader" part="producer" use="literal"/>
++				<soap:header message="tns:standardheader" part="userId" use="literal"/>
++				<soap:header message="tns:standardheader" part="id" use="literal"/>
++				<soap:header message="tns:standardheader" part="service" use="literal"/>
++			</output>
++		</operation>
++	</binding>
++	<service name="aktorstestService">
++		<port name="Test" binding="tns:TestSoapBinding">
++			<soap:address location="http://192.168.219.189/axis2/services/aktorstestService/"/>
++			<xrd:title xml:lang="et">Test andmekogu xtee ver5 doc/literal stiili jaoks</xrd:title>
++			<xrd:title xml:lang="en">Test database for xroad ver.5 doc/literal style</xrd:title>
++			<xrd:address producer="aktorstest"/>
++		</port>
++	</service>
++</definitions>
+\ No newline at end of file
+diff --strip-trailing-cr -wruN apache-cxf-3.0.1-src_orig/tools/validator/src/test/resources/validator_wsdl/xroad5Error.properties apache-cxf-3.0.1-src_new/tools/validator/src/test/resources/validator_wsdl/xroad5Error.properties
+--- apache-cxf-3.0.1-src_orig/tools/validator/src/test/resources/validator_wsdl/xroad5Error.properties	1970-01-01 03:00:00.000000000 +0300
++++ apache-cxf-3.0.1-src_new/tools/validator/src/test/resources/validator_wsdl/xroad5Error.properties	2016-01-21 11:15:10.803641997 +0200
+@@ -0,0 +1,6 @@
++mandatoryNodesReturningError = ERROR
++mandatoryNodesReturningWarning =
++notAllowedNodesReturningError =
++notAllowedNodesReturningWarning =
++mandatoryNodesInSpecifiedArraysReturningError=
++mandatoryNodesInSpecifiedArraysReturningWarning=
+\ No newline at end of file
+diff --strip-trailing-cr -wruN apache-cxf-3.0.1-src_orig/tools/validator/src/test/resources/validator_wsdl/xroad5.properties apache-cxf-3.0.1-src_new/tools/validator/src/test/resources/validator_wsdl/xroad5.properties
+--- apache-cxf-3.0.1-src_orig/tools/validator/src/test/resources/validator_wsdl/xroad5.properties	1970-01-01 03:00:00.000000000 +0300
++++ apache-cxf-3.0.1-src_new/tools/validator/src/test/resources/validator_wsdl/xroad5.properties	2016-01-21 11:15:10.803641997 +0200
+@@ -0,0 +1,27 @@
++mandatoryNodesReturningError =  /*[local-name() = 'definitions']/*[local-name() = 'service']/*[local-name() = 'port']/*[local-name()='address']/@producer, \
++                                /*[local-name() = 'definitions']/*[local-name() = 'service']/*[local-name() = 'port']/*[local-name()='title'], \
++								/*/namespace::*[.='http://schemas.xmlsoap.org/wsdl/soap/'], \
++                                /*/namespace::*[.='http://schemas.xmlsoap.org/wsdl/'] , \
++								/*/namespace::*[.='http://x-road.ee/xsd/x-road.xsd' or .='http://x-rd.net/xsd/xroad.xsd'], \
++								/*/namespace::*[substring(.,string-length(.)-string-length('.x-road.ee/producer')+1)='.x-road.ee/producer' or substring(.,string-length(.)-string-length('.x-rd.net/producer/')+1)='.x-rd.net/producer/']
++mandatoryNodesReturningWarning  =
++notAllowedNodesReturningError  =/*[local-name() = 'definitions']//*[local-name() = 'binding']//*[@style != 'document'], \
++								/*[local-name() = 'definitions']//*[local-name() = 'binding']//*[@use != 'literal'], \
++								/*[local-name() = 'definitions']/*[local-name() = 'binding']/*[local-name() = 'operation']/*[local-name() = 'input']/*[name()='soap:header']/@*[local-name() = 'encodingStyle' or local-name() = 'namespace'], \
++								/*[local-name() = 'definitions']/*[local-name() = 'binding']/*[local-name() = 'operation']/*[local-name() = 'input']/*[name()='soap:body']/@*[local-name() = 'encodingStyle' or local-name() = 'namespace'], \
++								/*[local-name() = 'definitions']/*[local-name() = 'message' and @name != substring-after(/*[local-name() = 'definitions']/*[local-name() = 'binding']/*[local-name() = 'operation']/*[local-name() = 'input']/*[name()='soap:header']/@*[local-name() = 'message' ],'tns:')]/*[local-name() != 'part'], \
++								//*[substring(@href,1,1)='#']
++notAllowedNodesReturningWarning=/*[local-name() = 'definitions']/*[local-name() = 'portType']/*[local-name() = 'operation']/*[local-name() = 'input' and substring-after(@message,'tns:') != ../@name], \
++								/*[local-name() = 'definitions']/*[local-name() = 'portType']/*[local-name() = 'operation']/*[local-name() = 'output' and substring(@message,string-length('tns:')+1,string-length(@message)-string-length('tns:')-string-length('Response')) != ../@name], \
++								/*/namespace::*[name()='xrd' and .='http://x-rd.net/xsd/xroad.xsd'], \
++								/*/namespace::*[substring(.,string-length(.)-string-length('.x-rd.net/producer/')+1)='.x-rd.net/producer/']			
++mandatoryNodesInSpecifiedArraysReturningError =/*[local-name() = 'definitions']/*[local-name() = 'binding']/*[local-name() = 'operation']/*[local-name() = 'input' or local-name() = 'output'][*[name()='soap:header']] -> *[name()='soap:header' and @part = 'consumer'], \
++												/*[local-name() = 'definitions']/*[local-name() = 'binding']/*[local-name() = 'operation']/*[local-name() = 'input' or local-name() = 'output'][*[name()='soap:header']] -> *[name()='soap:header' and @part = 'id'], \
++												/*[local-name() = 'definitions']/*[local-name() = 'binding']/*[local-name() = 'operation']/*[local-name() = 'input' or local-name() = 'output'][*[name()='soap:header']] -> *[name()='soap:header' and @part = 'userId'], \
++												/*[local-name() = 'definitions']/*[local-name() = 'binding']/*[local-name() = 'operation']/*[local-name() = 'input' or local-name() = 'output'][*[name()='soap:header']] -> *[name()='soap:header' and @part = 'service'], \
++												/*[local-name() = 'definitions']/*[local-name() = 'binding']/*[local-name() = 'operation']/*[local-name() = 'input' or local-name() = 'output'][*[name()='soap:header']] -> *[name()='soap:header' and @part = 'producer'], \
++												/*[local-name() = 'definitions']/*[local-name() = 'types']/*[local-name() = 'schema']/*[local-name() = 'element' and substring(@name,string-length(@name)-string-length('Response')+1)='Response']/*[local-name() = 'complexType']/*[local-name() = 'sequence'] -> *[local-name()='element' and @name = 'request'], \
++												/*[local-name() = 'definitions']/*[local-name() = 'types']/*[local-name() = 'schema']/*[local-name() = 'element' and substring(@name,string-length(@name)-string-length('Response')+1)='Response']/*[local-name() = 'complexType']/*[local-name() = 'sequence'] -> *[local-name()='element' and @name = 'response']
++mandatoryNodesInSpecifiedArraysReturningWarning =
++
++
+diff --strip-trailing-cr -wruN apache-cxf-3.0.1-src_orig/tools/validator/temp.wsdl apache-cxf-3.0.1-src_new/tools/validator/temp.wsdl
+--- apache-cxf-3.0.1-src_orig/tools/validator/temp.wsdl	1970-01-01 03:00:00.000000000 +0300
++++ apache-cxf-3.0.1-src_new/tools/validator/temp.wsdl	2016-01-21 11:15:10.803641997 +0200
+@@ -0,0 +1,842 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<definitions targetNamespace="http://aktorstest.x-road.ee/producer" 
++xmlns="http://schemas.xmlsoap.org/wsdl/" 
++xmlns:ns1="http://www.w3.org/1999/xlink" 
++xmlns:ns="http://schemas.xmlsoap.org/soap/encoding/" 
++xmlns:wsaw="http://www.w3.org/2006/05/addressing/wsdl" 
++xmlns:wsdl="http://www.w3.org/ns/wsdl" 
++xmlns:tns="http://aktorstest.x-road.ee/producer" 
++xmlns:xsd="http://www.w3.org/2001/XMLSchema" 
++xmlns:xmime="http://www.w3.org/2005/05/xmlmime" 
++xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" 
++xmlns:mime="http://schemas.xmlsoap.org/wsdl/mime/" 
++xmlns:xrd="http://x-road.ee/xsd/x-road.xsd">
++	<types>
++		<schema targetNamespace="http://aktorstest.x-road.ee/producer" xmlns="http://www.w3.org/2001/XMLSchema">
++			<import namespace="http://x-road.ee/xsd/x-road.xsd" schemaLocation="http://x-road.ee/xsd/x-road.xsd"/>
++			<import namespace="http://www.w3.org/2005/05/xmlmime" schemaLocation="http://www.w3.org/2005/05/xmlmime"/>
++			<element name="isikuteList">
++				<complexType>
++					<sequence>
++						<element name="request">
++							<complexType>
++								<sequence>
++									<element name="eesnimi" type="string">
++										<annotation>
++											<appinfo>
++												<xrd:title xml:lang="en">Given name</xrd:title>
++												<xrd:title xml:lang="et">Eesnimi</xrd:title>
++											</appinfo>
++										</annotation>
++									</element>
++									<element name="perenimi" type="string">
++										<annotation>
++											<appinfo>
++												<xrd:title xml:lang="en">Surname</xrd:title>
++												<xrd:title xml:lang="et">Perenimi</xrd:title>
++											</appinfo>
++										</annotation>
++									</element>
++								</sequence>
++							</complexType>
++						</element>
++					</sequence>
++				</complexType>
++			</element>
++			<element name="isikuteListResponse">
++				<complexType>
++					<sequence>
++						<element name="request">
++							<complexType>
++								<sequence>
++									<element name="eesnimi" nillable="true" type="string"/>
++									<element name="perenimi" nillable="true" type="string"/>
++								</sequence>
++							</complexType>
++						</element>
++						<element name="response">
++							<complexType>
++								<sequence>
++									<element name="faultCode" nillable="true" type="xrd:faultCode"/>
++									<element name="faultString" nillable="true" type="xrd:faultString"/>
++									<element maxOccurs="unbounded" minOccurs="0" name="isik" nillable="true" type="tns:isik_short">
++										<annotation>
++											<appinfo>
++												<xrd:title xml:lang="en">Person's data</xrd:title>
++												<xrd:title xml:lang="et">Isiku andmed</xrd:title>
++											</appinfo>
++										</annotation>
++									</element>
++								</sequence>
++							</complexType>
++						</element>
++					</sequence>
++				</complexType>
++			</element>
++			<element name="isikOtsing">
++				<complexType>
++					<sequence>
++						<element name="request">
++							<complexType>
++								<sequence>
++									<element name="isikukood" type="string">
++										<annotation>
++											<appinfo>
++												<xrd:title xml:lang="en">Perconal ID code</xrd:title>
++												<xrd:title xml:lang="et">Isikukood</xrd:title>
++											</appinfo>
++										</annotation>
++									</element>
++								</sequence>
++							</complexType>
++						</element>
++					</sequence>
++				</complexType>
++			</element>
++			<element name="isikOtsingResponse">
++				<complexType>
++					<sequence>
++						<element name="request">
++							<complexType>
++								<sequence>
++									<element name="isikukood" nillable="true" type="string"/>
++								</sequence>
++							</complexType>
++						</element>
++						<element name="response">
++							<complexType>
++								<sequence>
++									<element name="faultCode" nillable="true" type="xrd:faultCode"/>
++									<element name="faultString" nillable="true" type="xrd:faultString"/>
++									<element name="isiku_andmed" nillable="true" type="tns:isik"/>
++								</sequence>
++							</complexType>
++						</element>
++					</sequence>
++				</complexType>
++			</element>
++			<element name="changeAddress">
++				<complexType>
++					<sequence>
++						<element name="request">
++							<complexType>
++								<sequence>
++									<element name="isikukood" type="string">
++										<annotation>
++											<appinfo>
++												<xrd:title xml:lang="et">Isikukood</xrd:title>
++												<xrd:title xml:lang="en">Personal ID code</xrd:title>
++											</appinfo>
++										</annotation>
++									</element>
++									<element name="aadress" type="tns:aadress"/>
++								</sequence>
++							</complexType>
++						</element>
++					</sequence>
++				</complexType>
++			</element>
++			<element name="changeAddressResponse">
++				<complexType>
++					<sequence>
++						<element name="request">
++							<complexType>
++								<sequence>
++									<element name="isikukood" nillable="true" type="string"/>
++								</sequence>
++							</complexType>
++						</element>
++						<element name="response">
++							<complexType>
++								<sequence>
++									<element name="faultCode" nillable="true" type="xrd:faultCode"/>
++									<element name="faultString" nillable="true" type="xrd:faultString"/>
++								</sequence>
++							</complexType>
++						</element>
++					</sequence>
++				</complexType>
++			</element>
++			<element name="fileDownload">
++				<complexType>
++					<sequence>
++						<element name="request">
++							<complexType>
++								<sequence>
++									<element name="fileName" nillable="true" type="string">
++										<annotation>
++											<appinfo>
++												<xrd:title xml:lang="en">FileName</xrd:title>
++											</appinfo>
++										</annotation>
++									</element>
++								</sequence>
++							</complexType>
++						</element>
++					</sequence>
++				</complexType>
++			</element>
++			<element name="fileDownloadResponse">
++				<complexType>
++					<sequence>
++						<element name="request">
++							<complexType>
++								<sequence>
++									<element name="fileName" nillable="true" type="string"/>
++								</sequence>
++							</complexType>
++						</element>
++						<element name="response">
++							<complexType>
++								<sequence>
++									<element name="faultCode" nillable="true" type="xrd:faultCode"/>
++									<element name="faultString" nillable="true" type="xrd:faultString"/>
++									<element name="file" nillable="true">
++										<annotation>
++											<appinfo>
++												<xrd:title xml:lang="en">File</xrd:title>
++											</appinfo>
++										</annotation>
++										<complexType>
++											<attribute name="href" type="string"/>
++										</complexType>
++									</element>
++								</sequence>
++							</complexType>
++						</element>
++					</sequence>
++				</complexType>
++			</element>
++			<element name="fileUpload">
++				<complexType>
++					<sequence>
++						<element name="request">
++							<complexType>
++								<sequence>
++									<element name="fileName" nillable="true" type="string">
++										<annotation>
++											<appinfo>
++												<xrd:title xml:lang="en">FileName</xrd:title>
++											</appinfo>
++										</annotation>
++									</element>
++								</sequence>
++							</complexType>
++						</element>
++					</sequence>
++				</complexType>
++			</element>
++			<element name="fileUploadResponse">
++				<complexType>
++					<sequence>
++						<element name="request">
++							<complexType>
++								<sequence>
++									<element name="fileName" nillable="true" type="string"/>
++								</sequence>
++							</complexType>
++						</element>
++						<element name="response">
++							<complexType>
++								<sequence>
++									<element name="faultCode" nillable="true" type="xrd:faultCode"/>
++									<element name="faultString" nillable="true" type="xrd:faultString"/>
++								</sequence>
++							</complexType>
++						</element>
++					</sequence>
++				</complexType>
++			</element>
++			<element name="fileDownloadMTOM">
++				<complexType>
++					<sequence>
++						<element name="request">
++							<complexType>
++								<sequence>
++									<element name="fileName" nillable="true" type="string">
++										<annotation>
++											<appinfo>
++												<xrd:title xml:lang="en">FileName</xrd:title>
++											</appinfo>
++										</annotation>
++									</element>
++								</sequence>
++							</complexType>
++						</element>
++					</sequence>
++				</complexType>
++			</element>
++			<element name="fileDownloadMTOMResponse">
++				<complexType>
++					<sequence>
++						<element name="request">
++							<complexType>
++								<sequence>
++									<element name="fileName" nillable="true" type="string"/>
++								</sequence>
++							</complexType>
++						</element>
++						<element name="response">
++							<complexType>
++								<sequence>
++									<element name="faultCode" nillable="true" type="xrd:faultCode"/>
++									<element name="faultString" nillable="true" type="xrd:faultString"/>
++									<element name="file" type="base64Binary" xmime:expectedContentTypes="image/jpeg"/>
++								</sequence>
++							</complexType>
++						</element>
++					</sequence>
++				</complexType>
++			</element>
++			<element name="fileUploadMTOM">
++				<complexType>
++					<sequence>
++						<element name="request">
++							<complexType>
++								<sequence>
++									<element name="filemtom" type="base64Binary" xmime:expectedContentTypes="image/jpeg"/>
++									<element name="fileName" nillable="true" type="string">
++										<annotation>
++											<appinfo>
++												<xrd:title xml:lang="en">FileName</xrd:title>
++											</appinfo>
++										</annotation>
++									</element>
++								</sequence>
++							</complexType>
++						</element>
++					</sequence>
++				</complexType>
++			</element>
++			<element name="fileUploadMTOMResponse">
++				<complexType>
++					<sequence>
++						<element name="request">
++							<complexType>
++								<sequence>
++									<element name="fileName" nillable="true" type="string"/>
++								</sequence>
++							</complexType>
++						</element>
++						<element name="response">
++							<complexType>
++								<sequence>
++
++
++
++
++									<element name="faultCode" nillable="true" type="xrd:faultCode"/>
++									<element name="faultString" nillable="true" type="xrd:faultString"/>
++								</sequence>
++							</complexType>
++						</element>
++					</sequence>
++				</complexType>
++			</element>
++			<complexType name="isik">
++				<all>
++					<element name="eesnimi" type="string">
++						<annotation>
++							<appinfo>
++								<xrd:title xml:lang="en">Given name</xrd:title>
++								<xrd:title xml:lang="et">Eesnimi</xrd:title>
++							</appinfo>
++						</annotation>
++					</element>
++					<element name="perenimi" type="string">
++						<annotation>
++							<appinfo>
++								<xrd:title xml:lang="en">Surname</xrd:title>
++								<xrd:title xml:lang="et">Perenimi</xrd:title>
++							</appinfo>
++						</annotation>
++					</element>
++					<element name="isikukood" type="string">
++						<annotation>
++							<appinfo>
++								<xrd:title xml:lang="en">Personal ID code</xrd:title>
++								<xrd:title xml:lang="et">Isikukood</xrd:title>
++							</appinfo>
++						</annotation>
++					</element>
++					<element name="tookoht" type="tns:tookoht"/>
++					<element name="aadress" type="tns:aadress">
++						<annotation>
++							<appinfo>
++								<xrd:title xml:lang="en">Address</xrd:title>
++								<xrd:title xml:lang="et">Aadress</xrd:title>
++							</appinfo>
++						</annotation>
++					</element>
++					<element name="telefon" type="string">
++						<annotation>
++							<appinfo>
++								<xrd:title xml:lang="en">Phone number</xrd:title>
++								<xrd:title xml:lang="et">Kontakttelefon</xrd:title>
++							</appinfo>
++						</annotation>
++					</element>
++					<element name="epost" type="string">
++						<annotation>
++							<appinfo>
++								<xrd:title xml:lang="en">E-mail</xrd:title>
++								<xrd:title xml:lang="en">E-post</xrd:title>
++							</appinfo>
++						</annotation>
++					</element>
++					<element name="foto" nillable="true" type="xrd:jpg"/>
++				</all>
++			</complexType>
++			<complexType name="isik_short">
++				<all>
++					<element name="eesnimi" type="string">
++						<annotation>
++							<appinfo>
++								<xrd:title xml:lang="en">Given name</xrd:title>
++								<xrd:title xml:lang="et">Eesnimi</xrd:title>
++							</appinfo>
++						</annotation>
++					</element>
++					<element name="perenimi" type="string">
++						<annotation>
++							<appinfo>
++								<xrd:title xml:lang="en">Surname</xrd:title>
++								<xrd:title xml:lang="et">Perenimi</xrd:title>
++							</appinfo>
++						</annotation>
++					</element>
++					<element name="isikukood" type="string">
++						<annotation>
++							<appinfo>
++								<xrd:title xml:lang="en">Personal ID code</xrd:title>
++								<xrd:title xml:lang="et">Isikukood</xrd:title>
++							</appinfo>
++						</annotation>
++					</element>
++				</all>
++			</complexType>
++			<complexType name="aadress">
++				<all>
++					<element name="maakond" type="xrd:maakond">
++						<annotation>
++							<appinfo>
++								<xrd:title xml:lang="en">State</xrd:title>
++								<xrd:title xml:lang="et">Maakond</xrd:title>
++							</appinfo>
++						</annotation>
++					</element>
++					<element name="linnvald" type="string">
++						<annotation>
++							<appinfo>
++								<xrd:title xml:lang="en">City</xrd:title>
++								<xrd:title xml:lang="et">Linn/Vald</xrd:title>
++							</appinfo>
++						</annotation>
++					</element>
++					<element name="tanav" type="string">
++						<annotation>
++							<appinfo>
++								<xrd:title xml:lang="en">Street</xrd:title>
++								<xrd:title xml:lang="et">Tänav</xrd:title>
++							</appinfo>
++						</annotation>
++					</element>
++					<element name="majaNr" type="string">
++						<annotation>
++							<appinfo>
++								<xrd:title xml:lang="en">House nr.</xrd:title>
++								<xrd:title xml:lang="et">Maja nr.</xrd:title>
++							</appinfo>
++						</annotation>
++					</element>
++					<element name="korteriNr" type="integer">
++						<annotation>
++							<appinfo>
++								<xrd:title xml:lang="en">Flat nr.</xrd:title>
++								<xrd:title xml:lang="et">Korteri nr.</xrd:title>
++							</appinfo>
++						</annotation>
++					</element>
++				</all>
++			</complexType>
++			<complexType name="tookoht">
++				<all>
++					<element name="asutusekood" type="string">
++						<annotation>
++							<appinfo>
++								<xrd:title xml:lang="en">Employer's kood</xrd:title>
++								<xrd:title xml:lang="et">Asutuse kood</xrd:title>
++							</appinfo>
++						</annotation>
++					</element>
++					<element name="nimi" type="string">
++						<annotation>
++							<appinfo>
++								<xrd:title xml:lang="en">Employer's name</xrd:title>
++								<xrd:title xml:lang="et">Asutuse nimi</xrd:title>
++							</appinfo>
++						</annotation>
++					</element>
++					<element name="aadress" type="tns:aadress">
++						<annotation>
++							<appinfo>
++								<xrd:title xml:lang="en">Address</xrd:title>
++								<xrd:title xml:lang="et">Aadress</xrd:title>
++							</appinfo>
++						</annotation>
++					</element>
++				</all>
++			</complexType>
++			<element name="unitValid" type="xrd:unitValid"/>
++			<element name="unitValidResponse" type="xrd:unitValidResponse"/>
++			<element name="unitRepresent" type="xrd:unitRepresent"/>
++			<element name="unitRepresentResponse" type="xrd:unitRepresentResponse"/>
++		</schema>
++	</types>
++	<message name="isikOtsingResponse">
++		<part name="body" element="tns:isikOtsingResponse"/>
++	</message>
++	<message name="testSystem">
++		<part name="body" element="xrd:testSystem"/>
++	</message>
++	<message name="unitRepresent">
++		<part name="body" element="tns:unitRepresent"/>
++	</message>
++	<message name="fileUploadMTOMResponse">
++		<part name="body" element="tns:fileUploadMTOMResponse"/>
++	</message>
++	<message name="listMethodsResponse">
++		<part name="body" element="xrd:listMethodsResponse"/>
++	</message>
++	<message name="changeAddressResponse">
++		<part name="body" element="tns:changeAddressResponse"/>
++	</message>
++	<message name="loadClassification">
++		<part name="body" element="xrd:loadClassification"/>
++	</message>
++	<message name="fileDownloadResponse">
++		<part name="body" element="tns:fileDownloadResponse"/>
++		<part name="file" type="xsd:base64Binary"/>
++	</message>
++	<message name="unitValid">
++		<part name="body" element="tns:unitValid"/>
++	</message>
++	<message name="listMethods">
++		<part name="body" element="xrd:listMethods"/>
++	</message>
++	<message name="isikOtsing">
++		<part name="body" element="tns:isikOtsing"/>
++	</message>
++	<message name="fileDownloadMTOMResponse">
++		<part name="body" element="tns:fileDownloadMTOMResponse"/>
++	</message>
++	<message name="fileDownload">
++		<part name="body" element="tns:fileDownload"/>
++	</message>
++	<message name="isikuteListResponse">
++		<part name="body" element="tns:isikuteListResponse"/>
++	</message>
++	<message name="unitValidResponse">
++		<part name="body" element="tns:unitValidResponse"/>
++	</message>
++	<message name="fileDownloadMTOM">
++		<part name="body" element="tns:fileDownloadMTOM"/>
++	</message>
++	<message name="fileUpload">
++		<part name="body" element="tns:fileUpload"/>
++		<part name="file" type="xsd:base64Binary"/>
++	</message>
++	<message name="fileUploadMTOM">
++		<part name="body" element="tns:fileUploadMTOM"/>
++	</message>
++	<message name="unitRepresentResponse">
++		<part name="body" element="tns:unitRepresentResponse"/>
++	</message>
++	<message name="changeAddress">
++		<part name="body" element="tns:changeAddress"/>
++	</message>
++	<message name="testSystemResponse">
++		<part name="body" element="xrd:testSystemResponse"/>
++	</message>
++	<message name="loadClassificationResponse">
++		<part name="body" element="xrd:loadClassificationResponse"/>
++	</message>
++	<message name="isikuteList">
++		<part name="body" element="tns:isikuteList"/>
++	</message>
++	<message name="fileUploadResponse">
++		<part name="body" element="tns:fileUploadResponse"/>
++	</message>
++	<message name="standardheader">
++		<part name="consumer" element="xrd:consumer"/>
++		<part name="producer" element="xrd:producer"/>
++		<part name="userId" element="xrd:userId"/>
++		<part name="service" element="xrd:service"/>
++		<part name="id" element="xrd:id"/>
++	</message>
++	<portType name="TestPortType">
++		<operation name="isikuteList">
++			<documentation>
++				<xrd:title xml:lang="et">Isikute nimekirja teenus</xrd:title>
++				<xrd:title xml:lang="en">List of persons</xrd:title>
++			</documentation>
++			<input message="tns:isikuteList"/>
++			<output message="tns:isikuteListResponse"/>
++		</operation>
++		<operation name="isikOtsing">
++			<documentation>
++				<xrd:title xml:lang="et">Isiku andmete otsimine isikukoodi järgi</xrd:title>
++				<xrd:title xml:lang="en">Search person by Id-code</xrd:title>
++			</documentation>
++			<input message="tns:isikOtsing"/>
++			<output message="tns:isikOtsingResponse"/>
++		</operation>
++		<operation name="listMethods">
++			<documentation>
++				<xrd:title xml:lang="en">listMethods</xrd:title>
++			</documentation>
++			<input message="tns:listMethods"/>
++			<output message="tns:listMethodsResponse"/>
++		</operation>
++		<operation name="testSystem">
++			<documentation>
++				<xrd:title xml:lang="en">testSystem</xrd:title>
++			</documentation>
++			<input message="tns:testSystem"/>
++			<output message="tns:testSystemResponse"/>
++		</operation>
++		<operation name="unitValid">
++			<documentation>
++				<xrd:title xml:lang="en">unitValid</xrd:title>
++			</documentation>
++			<input message="tns:unitValid"/>
++			<output message="tns:unitValidResponse"/>
++		</operation>
++		<operation name="unitRepresent">
++			<documentation>
++				<xrd:title xml:lang="en">unitRepresent</xrd:title>
++			</documentation>
++			<input message="tns:unitRepresent"/>
++			<output message="tns:unitRepresentResponse"/>
++		</operation>
++		<operation name="loadClassification">
++			<documentation>
++				<xrd:title xml:lang="en">loadClassification</xrd:title>
++			</documentation>
++			<input message="tns:loadClassification"/>
++			<output message="tns:loadClassificationResponse"/>
++		</operation>
++		<operation name="fileDownloadMTOM">
++			<documentation>
++				<xrd:title xml:lang="et">Faili allalaadimine (MTOM)</xrd:title>
++				<xrd:title xml:lang="en">File Download (MTOM)</xrd:title>
++			</documentation>
++			<input message="tns:fileDownloadMTOM"/>
++			<output message="tns:fileDownloadMTOMResponse"/>
++		</operation>
++		<operation name="fileUploadMTOM">
++			<documentation>
++				<xrd:title xml:lang="et">Faili üleslaadimine (MTOM)</xrd:title>
++				<xrd:title xml:lang="en">File Upload (MTOM)</xrd:title>
++			</documentation>
++			<input message="tns:fileUploadMTOM"/>
++			<output message="tns:fileUploadMTOMResponse"/>
++		</operation>
++		<operation name="changeAddress">
++			<documentation>
++				<xrd:title xml:lang="et">Aadressi muutmine</xrd:title>
++				<xrd:title xml:lang="en">Change Address</xrd:title>
++			</documentation>
++			<input message="tns:changeAddress"/>
++			<output message="tns:changeAddressResponse"/>
++		</operation>
++	</portType>
++	<binding name="TestSoapBinding" type="tns:TestPortType">
++		<soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
++		<operation name="isikuteList">
++			<soap:operation soapAction="" style="document"/>
++			<xrd:version>v1</xrd:version>
++			<input>
++				<soap:body parts="body" use="literal"/>
++				<soap:header message="tns:standardheader" part="consumer" use="literal"/>
++				<soap:header message="tns:standardheader" part="producer" use="literal"/>
++				<soap:header message="tns:standardheader" part="userId" use="literal"/>
++				<soap:header message="tns:standardheader" part="id" use="literal"/>
++				<soap:header message="tns:standardheader" part="service" use="literal"/>
++			</input>
++			<output>
++				<soap:body parts="body" use="literal"/>
++				<soap:header message="tns:standardheader" part="consumer" use="literal"/>
++				<soap:header message="tns:standardheader" part="producer" use="literal"/>
++				<soap:header message="tns:standardheader" part="userId" use="literal"/>
++				<soap:header message="tns:standardheader" part="id" use="literal"/>
++				<soap:header message="tns:standardheader" part="service" use="literal"/>
++			</output>
++		</operation>
++		<operation name="isikOtsing">
++			<soap:operation soapAction="" style="document"/>
++			<xrd:version>v1</xrd:version>
++			<input>
++				<soap:body parts="body" use="literal"/>
++				<soap:header message="tns:standardheader" part="consumer" use="literal"/>
++				<soap:header message="tns:standardheader" part="producer" use="literal"/>
++				<soap:header message="tns:standardheader" part="userId" use="literal"/>
++				<soap:header message="tns:standardheader" part="id" use="literal"/>
++				<soap:header message="tns:standardheader" part="service" use="literal"/>
++			</input>
++			<output>
++				<soap:body parts="body" use="literal"/>
++				<soap:header message="tns:standardheader" part="consumer" use="literal"/>
++				<soap:header message="tns:standardheader" part="producer" use="literal"/>
++				<soap:header message="tns:standardheader" part="userId" use="literal"/>
++				<soap:header message="tns:standardheader" part="id" use="literal"/>
++				<soap:header message="tns:standardheader" part="service" use="literal"/>
++			</output>
++		</operation>
++		<operation name="listMethods">
++			<soap:operation soapAction="" style="document"/>
++			<input>
++				<soap:body parts="body" use="literal" />
++			</input>
++			<output>
++				<soap:body parts="body" use="literal" />
++			</output>
++		</operation>
++		<operation name="testSystem">
++			<soap:operation soapAction="" style="document"/>
++			<input>
++				<soap:body parts="body" use="literal"/>
++			</input>
++			<output>
++				<soap:body parts="body" use="literal"/>
++			</output>
++		</operation>
++		<operation name="unitValid">
++			<soap:operation soapAction="" style="document"/>
++			<input>
++				<soap:body parts="body" use="literal"/>
++				<soap:header message="tns:standardheader" part="consumer" use="literal"/>
++				<soap:header message="tns:standardheader" part="producer" use="literal"/>
++				<soap:header message="tns:standardheader" part="userId" use="literal"/>
++				<soap:header message="tns:standardheader" part="id" use="literal"/>
++				<soap:header message="tns:standardheader" part="service" use="literal"/>
++			</input>
++			<output>
++				<soap:body parts="body" use="literal"/>
++				<soap:header message="tns:standardheader" part="consumer" use="literal"/>
++				<soap:header message="tns:standardheader" part="producer" use="literal"/>
++				<soap:header message="tns:standardheader" part="userId" use="literal"/>
++				<soap:header message="tns:standardheader" part="id" use="literal"/>
++				<soap:header message="tns:standardheader" part="service" use="literal"/>
++			</output>
++		</operation>
++		<operation name="unitRepresent">
++			<soap:operation soapAction="" style="document"/>
++			<input>
++				<soap:body parts="body" use="literal"/>
++				<soap:header message="tns:standardheader" part="consumer" use="literal"/>
++				<soap:header message="tns:standardheader" part="producer" use="literal"/>
++				<soap:header message="tns:standardheader" part="userId" use="literal"/>
++				<soap:header message="tns:standardheader" part="id" use="literal"/>
++
++
++				<soap:header message="tns:standardheader" part="service" use="literal"/>
++			</input>
++			<output>
++				<soap:body parts="body" use="literal"/>
++				<soap:header message="tns:standardheader" part="consumer" use="literal"/>
++				<soap:header message="tns:standardheader" part="producer" use="literal"/>
++				<soap:header message="tns:standardheader" part="userId" use="literal"/>
++
++				<soap:header message="tns:standardheader" part="id" use="literal"/>
++				<soap:header message="tns:standardheader" part="service" use="literal"/>
++			</output>
++		</operation>
++		<operation name="loadClassification">
++			<soap:operation soapAction="" style="document"/>
++			<input>
++				<soap:body parts="body" use="literal"/>
++				<soap:header message="tns:standardheader" part="consumer" use="literal"/>
++				<soap:header message="tns:standardheader" part="producer" use="literal"/>
++				<soap:header message="tns:standardheader" part="userId" use="literal"/>
++				<soap:header message="tns:standardheader" part="id" use="literal"/>
++				<soap:header message="tns:standardheader" part="service" use="literal"/>
++			</input>
++			<output>
++				<soap:body parts="body" use="literal"/>
++				<soap:header message="tns:standardheader" part="consumer" use="literal"/>
++				<soap:header message="tns:standardheader" part="producer" use="literal"/>
++				<soap:header message="tns:standardheader" part="userId" use="literal"/>
++				<soap:header message="tns:standardheader" part="id" use="literal"/>
++				<soap:header message="tns:standardheader" part="service" use="literal"/>
++			</output>
++		</operation>
++		<operation name="fileDownloadMTOM">
++			<soap:operation soapAction="" style="document"/>
++			<xrd:version>v1</xrd:version>
++			<input>
++				<soap:body parts="body" use="literal"/>
++				<soap:header message="tns:standardheader" part="consumer" use="literal"/>
++				<soap:header message="tns:standardheader" part="producer" use="literal"/>
++				<soap:header message="tns:standardheader" part="userId" use="literal"/>
++				<soap:header message="tns:standardheader" part="id" use="literal"/>
++				<soap:header message="tns:standardheader" part="service" use="literal"/>
++			</input>
++			<output>
++				<soap:body use="literal"/>
++				<soap:header message="tns:standardheader" part="consumer" use="literal"/>
++				<soap:header message="tns:standardheader" part="producer" use="literal"/>
++				<soap:header message="tns:standardheader" part="userId" use="literal"/>
++				<soap:header message="tns:standardheader" part="id" use="literal"/>
++				<soap:header message="tns:standardheader" part="service" use="literal"/>
++			</output>
++		</operation>
++		<operation name="fileUploadMTOM">
++			<soap:operation soapAction="" style="document"/>
++			<xrd:version>v1</xrd:version>
++			<input>
++				<soap:body parts="body" use="literal"/>
++				<soap:header message="tns:standardheader" part="consumer" use="literal"/>
++				<soap:header message="tns:standardheader" part="producer" use="literal"/>
++				<soap:header message="tns:standardheader" part="userId" use="literal"/>
++				<soap:header message="tns:standardheader" part="id" use="literal"/>
++				<soap:header message="tns:standardheader" part="service" use="literal"/>
++			</input>
++			<output>
++				<soap:body parts="body" use="literal"/>
++				<soap:header message="tns:standardheader" part="consumer" use="literal"/>
++				<soap:header message="tns:standardheader" part="producer" use="literal"/>
++				<soap:header message="tns:standardheader" part="userId" use="literal"/>
++				<soap:header message="tns:standardheader" part="id" use="literal"/>
++				<soap:header message="tns:standardheader" part="service" use="literal"/>
++			</output>
++		</operation>
++		<operation name="changeAddress">
++			<soap:operation soapAction="" style="document"/>
++			<xrd:version>v1</xrd:version>
++			<input>
++				<soap:header message="tns:standardheader" part="consumer" use="literal"/>
++				<soap:header message="tns:standardheader" part="producer" use="literal"/>
++				<soap:header message="tns:standardheader" part="userId" use="literal"/>
++				<soap:header message="tns:standardheader" part="id" use="literal"/>
++				<soap:header message="tns:standardheader" part="service" use="literal"/>
++			</input>
++			<output>
++				<soap:body parts="body" use="literal"/>
++				<soap:header message="tns:standardheader" part="consumer" use="literal"/>
++				<soap:header message="tns:standardheader" part="producer" use="literal"/>
++				<soap:header message="tns:standardheader" part="userId" use="literal"/>
++				<soap:header message="tns:standardheader" part="id" use="literal"/>
++				<soap:header message="tns:standardheader" part="service" use="literal"/>
++			</output>
++		</operation>
++	</binding>
++	<service name="aktorstestService">
++		<port name="Test" binding="tns:TestSoapBinding">
++			<soap:address location="http://192.168.219.189/axis2/services/aktorstestService/"/>
++			<xrd:title xml:lang="et">Test andmekogu xtee ver5 doc/literal stiili jaoks</xrd:title>
++			<xrd:title xml:lang="en">Test database for xroad ver.5 doc/literal style</xrd:title>
++			<xrd:address producer="aktorstest"/>
++		</port>
++	</service>
++</definitions>
+\ No newline at end of file

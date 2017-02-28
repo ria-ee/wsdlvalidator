@@ -1,0 +1,13 @@
+Source: xroad-wsdlvalidator
+Section: utils
+Priority: optional
+Maintainer: OÜ Aktors <info@aktors.ee>
+Build-Depends: debhelper (>= 8.0.0)
+Standards-Version: 3.9.4
+Homepage: http://cxf.apache.org
+
+Package: xroad-wsdlvalidator
+Architecture: any
+Depends:
+Description: extended apache-cxf-3.0.1 with
+ configurable wsdl validation rules

@@ -1,0 +1,26 @@
+X-Road validation delivery
+
+The project consists of the following deliverables:
+- Patch to add xpath validation into apache-cxf-3.0.1
+  - A patch file which can be applied with:
+    `patch -p1 < ../validation-patch-against-3.0.1.patch`
+  - Developed against apache-cxf-3.0.1-src.zip which 
+    has a SHA1 sum of 93614d291d8c6fd26b4eed91990e60afee503a0d
+  - If possible delivery *updated* to be against apache-cxf-3.0.4-src.zip 
+    with a SHA1 sum of c30866e64ef1b0cda97576ae2dccc7544c6e3d25
+  - Patch can be applied with:
+    - unzip apache-cxf-3.0.1-src.zip
+    - cd apache-cxf-3.0.1-src
+    - patch -p1 < ../delivery.patch
+- (Customized?) build script(s) for Apache CXF
+  - Not needed, usable with standard `mvn clean install`
+- Xpath validation rules for X-Road v5 and X-Road v6
+  - xroad5.properties
+  - xroad6.properties
+- Sample WSDL files
+  - xroad5.wsdl
+  - xroad6.wsdl
+- Debian packaging scripts ("a debian/ folder") and helper to combine the above
+  - build-package.sh, which eventually calls `dpkg-buildpackage -rfakeroot -us -uc`
+- Script for portable package creation
+  - build-package.sh

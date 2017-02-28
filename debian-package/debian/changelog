@@ -1,0 +1,7 @@
+xroad-wsdlvalidator (1.0.2) unstable; urgency=low
+
+  * Fixing crash when passing big WSDL files via stdin.
+
+  * Initial Release.
+
+ -- Aktors <info@aktors.ee>  Thu, 05 Feb 2015 21:45:54 +0200
